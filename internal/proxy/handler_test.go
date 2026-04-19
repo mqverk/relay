@@ -19,7 +19,7 @@ func TestHandlerCachesGETResponses(t *testing.T) {
 		atomic.AddInt32(&calls, 1)
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Origin", "ok")
-		w.WriteHeader(http.StatusCreated)
+		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"from-origin"}`))
 	}))
 	defer origin.Close()
@@ -38,8 +38,8 @@ func TestHandlerCachesGETResponses(t *testing.T) {
 	defer proxyServer.Close()
 
 	res1, body1 := mustGet(t, proxyServer.URL+"/products?limit=10")
-	if got := res1.StatusCode; got != http.StatusCreated {
-		t.Fatalf("first response status = %d, want %d", got, http.StatusCreated)
+	if got := res1.StatusCode; got != http.StatusOK {
+		t.Fatalf("first response status = %d, want %d", got, http.StatusOK)
 	}
 	if got := res1.Header.Get("X-Cache"); got != cacheMiss {
 		t.Fatalf("first response X-Cache = %q, want %q", got, cacheMiss)
