@@ -8,9 +8,17 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+)
+
+type configFormat string
+
+const (
+	configFormatJSON configFormat = "json"
+	configFormatYAML configFormat = "yaml"
 )
 
 // ErrHelpRequested indicates that help output was requested.
@@ -91,7 +99,20 @@ func Parse(args []string) (Config, error) {
 	cfg.ConfigFile = configPath
 
 	if configPath != "" {
-		fc, err := loadJSONConfig(configPath)
+		format, err := detectConfigFormat(configPath)
+		if err != nil {
+			return Config{}, err
+		}
+
+		var fc fileConfig
+		switch format {
+		case configFormatJSON:
+			fc, err = loadJSONConfig(configPath)
+		case configFormatYAML:
+			return Config{}, errors.New("yaml config support is not enabled yet")
+		default:
+			return Config{}, fmt.Errorf("unsupported config file format: %s", configPath)
+		}
 		if err != nil {
 			return Config{}, err
 		}
@@ -240,6 +261,18 @@ func loadJSONConfig(path string) (fileConfig, error) {
 		return fileConfig{}, fmt.Errorf("parse config file JSON: %w", err)
 	}
 	return fc, nil
+}
+
+func detectConfigFormat(path string) (configFormat, error) {
+	ext := strings.ToLower(filepath.Ext(strings.TrimSpace(path)))
+	switch ext {
+	case ".json":
+		return configFormatJSON, nil
+	case ".yaml", ".yml":
+		return configFormatYAML, nil
+	default:
+		return "", fmt.Errorf("unsupported config file extension: %s", ext)
+	}
 }
 
 func applyFileConfig(cfg *Config, fc fileConfig) {
