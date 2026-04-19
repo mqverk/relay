@@ -144,6 +144,32 @@ func TestHandlerBypassesCacheForConfiguredHeader(t *testing.T) {
 	}
 }
 
+func TestHandlerDoesNotCacheStatusCreatedByDefault(t *testing.T) {
+	var calls int32
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte("created"))
+	}))
+	defer origin.Close()
+
+	h := mustNewAdvancedHandler(t, origin.URL)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+
+	res1, _ := mustGet(t, srv.URL+"/products")
+	res2, _ := mustGet(t, srv.URL+"/products")
+	if got := res1.Header.Get("X-Cache"); got != cacheMiss {
+		t.Fatalf("first response X-Cache = %q, want MISS", got)
+	}
+	if got := res2.Header.Get("X-Cache"); got != cacheMiss {
+		t.Fatalf("second response X-Cache = %q, want MISS", got)
+	}
+	if got := atomic.LoadInt32(&calls); got != 2 {
+		t.Fatalf("origin calls = %d, want 2", got)
+	}
+}
+
 func mustNewAdvancedHandler(t *testing.T, originRaw string) *Handler {
 	t.Helper()
 	originURL, err := url.Parse(originRaw)
