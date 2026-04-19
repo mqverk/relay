@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 type configFormat string
@@ -109,7 +111,7 @@ func Parse(args []string) (Config, error) {
 		case configFormatJSON:
 			fc, err = loadJSONConfig(configPath)
 		case configFormatYAML:
-			return Config{}, errors.New("yaml config support is not enabled yet")
+			fc, err = loadYAMLConfig(configPath)
 		default:
 			return Config{}, fmt.Errorf("unsupported config file format: %s", configPath)
 		}
@@ -259,6 +261,25 @@ func loadJSONConfig(path string) (fileConfig, error) {
 	var fc fileConfig
 	if err := json.Unmarshal(bytes, &fc); err != nil {
 		return fileConfig{}, fmt.Errorf("parse config file JSON: %w", err)
+	}
+	return fc, nil
+}
+
+func loadYAMLConfig(path string) (fileConfig, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return fileConfig{}, fmt.Errorf("open config file: %w", err)
+	}
+	defer f.Close()
+
+	bytes, err := io.ReadAll(f)
+	if err != nil {
+		return fileConfig{}, fmt.Errorf("read config file: %w", err)
+	}
+
+	var fc fileConfig
+	if err := yaml.Unmarshal(bytes, &fc); err != nil {
+		return fileConfig{}, fmt.Errorf("parse config file YAML: %w", err)
 	}
 	return fc, nil
 }
