@@ -48,3 +48,20 @@ func TestPolicyFromResponseHeadersParsesVary(t *testing.T) {
 		t.Fatalf("vary[1] = %s", policy.Vary[1])
 	}
 }
+
+func TestPolicyFromResponseHeadersNoCacheDisablesStaleWindows(t *testing.T) {
+	now := time.Now()
+	header := http.Header{}
+	header.Set("Cache-Control", "no-cache, stale-while-revalidate=30, stale-if-error=120")
+
+	policy := PolicyFromResponseHeaders(header, now, PolicyDefaults{TTL: time.Minute})
+	if !policy.ExpiresAt.Equal(now) {
+		t.Fatalf("expires_at should equal now for no-cache")
+	}
+	if !policy.StaleWhileRevalidateUntil.IsZero() {
+		t.Fatal("stale-while-revalidate should be disabled for no-cache")
+	}
+	if !policy.StaleIfErrorUntil.IsZero() {
+		t.Fatal("stale-if-error should be disabled for no-cache")
+	}
+}

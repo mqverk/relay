@@ -75,6 +75,8 @@ func PolicyFromResponseHeaders(header http.Header, now time.Time, defaults Polic
 
 	if hasDirective(cacheControl, "no-cache") {
 		policy.ExpiresAt = now
+		policy.StaleWhileRevalidateUntil = time.Time{}
+		policy.StaleIfErrorUntil = time.Time{}
 	}
 
 	return policy
