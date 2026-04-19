@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -283,6 +284,10 @@ func (h *Handler) fetchAndCache(r *http.Request, baseKey string, staleEntry cach
 	}
 
 	headers := sanitizeHeaders(resp.Header)
+	if hasStale && resp.StatusCode >= 500 {
+		return originResult{}, relayerrors.New(relayerrors.CategoryNetwork, "origin_server_error", fmt.Sprintf("origin returned %d", resp.StatusCode))
+	}
+
 	result := originResult{
 		status:      resp.StatusCode,
 		header:      headers,
