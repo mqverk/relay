@@ -8,11 +8,29 @@ import (
 	"net/url"
 )
 
+// ErrHelpRequested indicates that the user requested help output.
+var ErrHelpRequested = errors.New("help requested")
+
 // Config holds validated command-line configuration.
 type Config struct {
 	Port       int
 	Origin     *url.URL
 	ClearCache bool
+}
+
+// Usage returns the command help text.
+func Usage() string {
+	return `relay - HTTP caching proxy
+
+Usage:
+	relay --port <number> --origin <url>
+	relay --clear-cache
+
+Options:
+	--port         Port to listen on (required unless --clear-cache)
+	--origin       Base URL of origin server (required unless --clear-cache)
+	--clear-cache  Clear in-memory cache and exit
+`
 }
 
 // Parse validates command-line arguments and returns a typed configuration.
@@ -28,6 +46,9 @@ func Parse(args []string) (Config, error) {
 	fs.BoolVar(&cfg.ClearCache, "clear-cache", false, "clear cache and exit")
 
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return Config{}, ErrHelpRequested
+		}
 		return Config{}, fmt.Errorf("parse flags: %w", err)
 	}
 

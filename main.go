@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -16,7 +18,12 @@ import (
 func main() {
 	cfg, err := cli.Parse(os.Args[1:])
 	if err != nil {
-		log.Fatalf("invalid arguments: %v", err)
+		if errors.Is(err, cli.ErrHelpRequested) {
+			fmt.Print(cli.Usage())
+			return
+		}
+		fmt.Fprintf(os.Stderr, "error: %v\n\n%s", err, cli.Usage())
+		os.Exit(2)
 	}
 
 	store := cache.DefaultStore()
