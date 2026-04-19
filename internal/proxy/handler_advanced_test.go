@@ -170,6 +170,64 @@ func TestHandlerDoesNotCacheStatusCreatedByDefault(t *testing.T) {
 	}
 }
 
+func TestHandlerReturns304FromCacheOnIfNoneMatch(t *testing.T) {
+	var calls int32
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		w.Header().Set("Cache-Control", "max-age=60")
+		w.Header().Set("ETag", `"v1"`)
+		_, _ = w.Write([]byte("body"))
+	}))
+	defer origin.Close()
+
+	h := mustNewAdvancedHandler(t, origin.URL)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+
+	_, _ = mustGet(t, srv.URL+"/products")
+	res, _ := mustGetWithHeaders(t, srv.URL+"/products", map[string]string{"If-None-Match": `"v1"`})
+
+	if res.StatusCode != http.StatusNotModified {
+		t.Fatalf("status = %d, want 304", res.StatusCode)
+	}
+	if got := res.Header.Get("X-Cache"); got != cacheHit {
+		t.Fatalf("X-Cache = %q, want HIT", got)
+	}
+	if got := atomic.LoadInt32(&calls); got != 1 {
+		t.Fatalf("origin calls = %d, want 1", got)
+	}
+}
+
+func TestHandlerReturns304FromCacheOnIfModifiedSince(t *testing.T) {
+	var calls int32
+	lastModified := time.Now().UTC().Add(-time.Minute).Format(http.TimeFormat)
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		w.Header().Set("Cache-Control", "max-age=60")
+		w.Header().Set("Last-Modified", lastModified)
+		_, _ = w.Write([]byte("body"))
+	}))
+	defer origin.Close()
+
+	h := mustNewAdvancedHandler(t, origin.URL)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+
+	_, _ = mustGet(t, srv.URL+"/products")
+	ifModifiedSince := time.Now().UTC().Format(http.TimeFormat)
+	res, _ := mustGetWithHeaders(t, srv.URL+"/products", map[string]string{"If-Modified-Since": ifModifiedSince})
+
+	if res.StatusCode != http.StatusNotModified {
+		t.Fatalf("status = %d, want 304", res.StatusCode)
+	}
+	if got := res.Header.Get("X-Cache"); got != cacheHit {
+		t.Fatalf("X-Cache = %q, want HIT", got)
+	}
+	if got := atomic.LoadInt32(&calls); got != 1 {
+		t.Fatalf("origin calls = %d, want 1", got)
+	}
+}
+
 func mustNewAdvancedHandler(t *testing.T, originRaw string) *Handler {
 	t.Helper()
 	originURL, err := url.Parse(originRaw)
@@ -194,4 +252,25 @@ func mustNewAdvancedHandler(t *testing.T, originRaw string) *Handler {
 		t.Fatalf("create handler: %v", err)
 	}
 	return h
+}
+
+func mustGetWithHeaders(t *testing.T, target string, headers map[string]string) (*http.Response, string) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, target, nil)
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET %s: %v", target, err)
+	}
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	return res, string(body)
 }

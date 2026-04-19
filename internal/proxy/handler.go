@@ -211,11 +211,17 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch state {
 	case cache.StateHit:
+		if writeConditionalNotModified(w, r, entry, cacheHit) {
+			return
+		}
 		writeCachedResponse(w, entry, cacheHit, "")
 		return
 	case cache.StateStale:
 		if entry.CanServeStaleWhileRevalidate(now) {
 			h.revalidateInBackground(r, baseKey, entry)
+			if writeConditionalNotModified(w, r, entry, cacheHit) {
+				return
+			}
 			writeCachedResponse(w, entry, cacheHit, "STALE")
 			return
 		}
@@ -505,6 +511,48 @@ func writeCachedResponse(w http.ResponseWriter, entry cache.Entry, cacheStatus, 
 	}
 	w.WriteHeader(entry.StatusCode)
 	_, _ = w.Write(entry.Body)
+}
+
+func writeConditionalNotModified(w http.ResponseWriter, r *http.Request, entry cache.Entry, cacheStatus string) bool {
+	if !isConditionalCacheRequest(r, entry) {
+		return false
+	}
+
+	for k, values := range sanitizeHeaders(entry.Header) {
+		for _, value := range values {
+			w.Header().Add(k, value)
+		}
+	}
+	w.Header().Set(headerXCache, cacheStatus)
+	w.Header().Set(headerXCacheDetail, "CONDITIONAL")
+	w.WriteHeader(http.StatusNotModified)
+	return true
+}
+
+func isConditionalCacheRequest(r *http.Request, entry cache.Entry) bool {
+	if r == nil {
+		return false
+	}
+	ifNoneMatch := strings.TrimSpace(r.Header.Get("If-None-Match"))
+	if ifNoneMatch != "" && entry.ETag != "" {
+		for _, token := range strings.Split(ifNoneMatch, ",") {
+			candidate := strings.TrimSpace(token)
+			if candidate == entry.ETag || candidate == "*" {
+				return true
+			}
+		}
+	}
+
+	ifModifiedSince := strings.TrimSpace(r.Header.Get("If-Modified-Since"))
+	if ifModifiedSince != "" && entry.LastModified != "" {
+		reqTime, errReq := http.ParseTime(ifModifiedSince)
+		entryTime, errEntry := http.ParseTime(entry.LastModified)
+		if errReq == nil && errEntry == nil && (entryTime.Before(reqTime) || entryTime.Equal(reqTime)) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func copyRequestHeaders(dst, src http.Header) {
