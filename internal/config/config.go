@@ -39,6 +39,7 @@ type Config struct {
 	StaleIfError          time.Duration
 	CacheMaxEntries       int
 	CacheMaxEntryBytes    int
+	CacheMaxBytes         int64
 	CacheMethods          []string
 	CacheBypassPaths      []string
 	CacheBypassHeaders    []string
@@ -187,6 +188,7 @@ func defaultConfig() Config {
 		StaleIfError:          5 * time.Minute,
 		CacheMaxEntries:       5000,
 		CacheMaxEntryBytes:    1024 * 1024,
+		CacheMaxBytes:         512 * 1024 * 1024,
 		CacheMethods:          []string{httpMethodGet},
 		CacheBypassPaths:      nil,
 		CacheBypassHeaders:    []string{"Authorization"},
