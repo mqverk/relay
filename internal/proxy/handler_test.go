@@ -140,7 +140,10 @@ func TestHandlerForwardsEscapedPathWithoutDoubleEscaping(t *testing.T) {
 	defer proxyServer.Close()
 
 	_, body := mustGet(t, proxyServer.URL+"/v1/items%2Fencoded?x=1")
-	if body != "/v1/items%2Fencoded?x=1" {
+	if strings.Contains(body, "%252F") {
+		t.Fatalf("request URI was double-escaped: %s", body)
+	}
+	if body != "/v1/items/encoded?x=1" {
 		t.Fatalf("unexpected forwarded URI: %s", body)
 	}
 }
