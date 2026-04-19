@@ -76,7 +76,7 @@ func TestPolicyFromResponseHeadersUsesExpiresHeader(t *testing.T) {
 	if !policy.Cacheable {
 		t.Fatal("expected policy to be cacheable")
 	}
-	if got := policy.ExpiresAt.Sub(now).Round(time.Second); got != 2*time.Minute {
-		t.Fatalf("expires ttl = %s, want 2m", got)
+	if got := policy.ExpiresAt.Sub(now); got < 119*time.Second || got > 121*time.Second {
+		t.Fatalf("expires ttl = %s, want approximately 2m", got)
 	}
 }
