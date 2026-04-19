@@ -165,6 +165,7 @@ func NewHandlerWithOptions(opts HandlerOptions) (*Handler, error) {
 		IdleConnTimeout:       opts.IdleConnTimeout,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ResponseHeaderTimeout: opts.ResponseHeaderTimeout,
+		MaxResponseHeaderBytes: opts.MaxResponseHeaderBytes,
 		ExpectContinueTimeout: 1 * time.Second,
 	}
 
