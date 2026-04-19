@@ -80,6 +80,19 @@ func TestStoreEvictsLeastRecentlyUsed(t *testing.T) {
 	}
 }
 
+func TestStoreEvictsWhenByteLimitExceeded(t *testing.T) {
+	store := NewStoreWithOptions(Options{DefaultTTL: time.Minute, MaxEntries: 10, MaxBytes: 40, MaxEntryBytes: 1024})
+	store.Set("a", Entry{StatusCode: 200, Body: []byte("aaaaaaaaaaaaaaaaaaaa")})
+	store.Set("b", Entry{StatusCode: 200, Body: []byte("bbbbbbbbbbbbbbbbbbbb")})
+
+	if _, ok := store.Get("a"); ok {
+		t.Fatal("expected key a to be evicted when byte limit exceeded")
+	}
+	if _, ok := store.Get("b"); !ok {
+		t.Fatal("expected key b to remain in cache")
+	}
+}
+
 func TestLookupSupportsVaryHeaders(t *testing.T) {
 	store := NewStoreWithOptions(Options{DefaultTTL: time.Minute, MaxEntries: 10, MaxBytes: 1024 * 1024, MaxEntryBytes: 1024})
 	policy := Policy{Cacheable: true, ExpiresAt: time.Now().Add(time.Minute), Vary: []string{"Accept-Language"}}
