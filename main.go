@@ -19,10 +19,10 @@ func main() {
 		log.Fatalf("invalid arguments: %v", err)
 	}
 
-	store := cache.NewStore(0)
+	store := cache.DefaultStore()
 
 	if cfg.ClearCache {
-		store.Clear()
+		cache.ClearDefault()
 		log.Println("cache cleared")
 		return
 	}
