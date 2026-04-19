@@ -124,6 +124,27 @@ func TestHandlerDoesNotCacheNonGETRequests(t *testing.T) {
 	}
 }
 
+func TestHandlerForwardsEscapedPathWithoutDoubleEscaping(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(r.RequestURI))
+	}))
+	defer origin.Close()
+
+	originURL, _ := url.Parse(origin.URL)
+	h, err := NewHandler(originURL, cache.NewStore(0), log.New(io.Discard, "", 0))
+	if err != nil {
+		t.Fatalf("create handler: %v", err)
+	}
+
+	proxyServer := httptest.NewServer(h)
+	defer proxyServer.Close()
+
+	_, body := mustGet(t, proxyServer.URL+"/v1/items%2Fencoded?x=1")
+	if body != "/v1/items%2Fencoded?x=1" {
+		t.Fatalf("unexpected forwarded URI: %s", body)
+	}
+}
+
 func mustGet(t *testing.T, target string) (*http.Response, string) {
 	t.Helper()
 	res, err := http.Get(target)

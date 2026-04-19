@@ -166,12 +166,12 @@ func cacheKey(r *http.Request) string {
 
 func joinURL(origin, incoming *url.URL) *url.URL {
 	target := *origin
-	incomingPath := incoming.EscapedPath()
+	incomingPath := incoming.Path
 	if incomingPath == "" {
 		incomingPath = "/"
 	}
 	target.Path = singleJoiningSlash(origin.Path, incomingPath)
-	target.RawPath = target.Path
+	target.RawPath = ""
 	target.RawQuery = incoming.RawQuery
 	target.Fragment = ""
 	return &target
