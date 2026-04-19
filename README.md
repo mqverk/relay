@@ -97,6 +97,8 @@ Metrics include:
 
 - Total requests (`relay_requests_total`)
 - Request latency histogram (`relay_request_duration_seconds`)
+- Cache decisions by state (`relay_cache_decisions_total`)
+- Cache decision details (`relay_cache_decision_details_total`)
 - Cache entries and size
 - Cache hits/misses and hit ratio
 
