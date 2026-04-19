@@ -65,3 +65,18 @@ func TestPolicyFromResponseHeadersNoCacheDisablesStaleWindows(t *testing.T) {
 		t.Fatal("stale-if-error should be disabled for no-cache")
 	}
 }
+
+func TestPolicyFromResponseHeadersUsesExpiresHeader(t *testing.T) {
+	now := time.Now().UTC()
+	expiresAt := now.Add(2 * time.Minute).Format(http.TimeFormat)
+	header := http.Header{}
+	header.Set("Expires", expiresAt)
+
+	policy := PolicyFromResponseHeaders(header, now, PolicyDefaults{TTL: 10 * time.Second})
+	if !policy.Cacheable {
+		t.Fatal("expected policy to be cacheable")
+	}
+	if got := policy.ExpiresAt.Sub(now).Round(time.Second); got != 2*time.Minute {
+		t.Fatalf("expires ttl = %s, want 2m", got)
+	}
+}
