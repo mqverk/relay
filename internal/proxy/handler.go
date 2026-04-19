@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -227,7 +228,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	result, err := h.inflight.Do(baseKey, func() (originResult, error) {
+	coalescingKey := buildCoalescingKey(baseKey, r)
+	result, err := h.inflight.Do(coalescingKey, func() (originResult, error) {
 		return h.fetchAndCache(r, baseKey, entry, state == cache.StateStale)
 	})
 	if err != nil {
@@ -638,6 +640,35 @@ func isCacheableStatus(status int) bool {
 	default:
 		return false
 	}
+}
+
+func buildCoalescingKey(baseKey string, r *http.Request) string {
+	if r == nil {
+		return baseKey
+	}
+
+	keys := make([]string, 0, len(r.Header))
+	for key := range r.Header {
+		canonical := http.CanonicalHeaderKey(key)
+		if _, skip := hopByHopHeaders[canonical]; skip {
+			continue
+		}
+		keys = append(keys, canonical)
+	}
+	sort.Strings(keys)
+
+	b := strings.Builder{}
+	b.WriteString(baseKey)
+	b.WriteString("|h")
+	for _, key := range keys {
+		values := append([]string(nil), r.Header[key]...)
+		sort.Strings(values)
+		b.WriteString("|")
+		b.WriteString(key)
+		b.WriteString("=")
+		b.WriteString(strings.Join(values, ","))
+	}
+	return b.String()
 }
 
 type coalescer struct {
