@@ -45,7 +45,7 @@ func Run(args []string) int {
 		StaleIfError:         cfg.StaleIfError,
 		MaxEntries:           cfg.CacheMaxEntries,
 		MaxEntryBytes:        int64(cfg.CacheMaxEntryBytes),
-		MaxBytes:             int64(cfg.CacheMaxEntries * cfg.CacheMaxEntryBytes),
+		MaxBytes:             cfg.CacheMaxBytes,
 	})
 
 	if cfg.ClearCache {
