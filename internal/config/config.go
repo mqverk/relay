@@ -62,7 +62,7 @@ Config precedence:
   CLI flags > environment variables > config file
 
 Common options:
-  --config <path>                 JSON config file path
+	--config <path>                 JSON or YAML config file path
   --port <number>                 listening port
   --origin <url>                  origin base URL
   --ttl <duration>                default cache TTL (e.g. 60s)
