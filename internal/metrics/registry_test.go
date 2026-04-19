@@ -16,6 +16,8 @@ func TestRegistryRenderPrometheus(t *testing.T) {
 	expected := []string{
 		"relay_requests_total",
 		"relay_request_duration_seconds_bucket",
+		"relay_cache_decisions_total{state=\"HIT\"} 1",
+		"relay_cache_decisions_total{state=\"MISS\"} 1",
 		"relay_cache_entries 10",
 		"relay_cache_size_bytes 4096",
 		"relay_cache_hit_ratio 0.8",
