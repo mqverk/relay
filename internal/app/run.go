@@ -133,6 +133,8 @@ func Run(args []string) int {
 	limiter := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
 	handler := middleware.Chain(
 		mux,
+		middleware.Recover(errHandler, logger),
+		middleware.RequestID(),
 		middleware.Logging(logger),
 		middleware.Metrics(metricsReg),
 		limiter.Middleware(),
