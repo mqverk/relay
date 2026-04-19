@@ -1,8 +1,10 @@
 package middleware
 
 import (
+	"math"
 	"net"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -40,10 +42,14 @@ func (rl *RateLimiter) Middleware() Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			clientID := clientIP(r.RemoteAddr)
-			if !rl.allow(clientID, time.Now()) {
+			allowed, remaining, retryAfter := rl.allow(clientID, time.Now())
+			w.Header().Set("X-RateLimit-Limit", strconv.Itoa(int(rl.burst)))
+			w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(remaining))
+			if !allowed {
+				w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)
-				_, _ = w.Write([]byte(`{"error":"Too Many Requests","status_code":429}`))
+				_, _ = w.Write([]byte(`{"error":"Too Many Requests","status_code":429,"code":"rate_limited"}`))
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -51,14 +57,18 @@ func (rl *RateLimiter) Middleware() Middleware {
 	}
 }
 
-func (rl *RateLimiter) allow(clientID string, now time.Time) bool {
+func (rl *RateLimiter) allow(clientID string, now time.Time) (bool, int, int) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
 	b, ok := rl.clients[clientID]
 	if !ok {
 		rl.clients[clientID] = &bucket{tokens: rl.burst - 1, last: now}
-		return true
+		remaining := int(math.Floor(rl.burst - 1))
+		if remaining < 0 {
+			remaining = 0
+		}
+		return true, remaining, 0
 	}
 
 	elapsed := now.Sub(b.last).Seconds()
@@ -68,10 +78,21 @@ func (rl *RateLimiter) allow(clientID string, now time.Time) bool {
 		b.tokens = rl.burst
 	}
 	if b.tokens < 1 {
-		return false
+		if rl.rps <= 0 {
+			return false, 0, 1
+		}
+		retryAfter := int(math.Ceil((1 - b.tokens) / rl.rps))
+		if retryAfter < 1 {
+			retryAfter = 1
+		}
+		return false, 0, retryAfter
 	}
 	b.tokens -= 1
-	return true
+	remaining := int(math.Floor(b.tokens))
+	if remaining < 0 {
+		remaining = 0
+	}
+	return true, remaining, 0
 }
 
 func clientIP(remoteAddr string) string {
