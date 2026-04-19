@@ -2,6 +2,7 @@ package cache
 
 import (
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 )
@@ -54,5 +55,62 @@ func TestStoreTTLExpiration(t *testing.T) {
 
 	if _, ok := store.Get("k"); ok {
 		t.Fatal("expected cache entry to expire")
+	}
+}
+
+func TestStoreEvictsLeastRecentlyUsed(t *testing.T) {
+	store := NewStoreWithOptions(Options{DefaultTTL: time.Minute, MaxEntries: 2, MaxBytes: 1024 * 1024, MaxEntryBytes: 1024})
+	store.Set("a", Entry{StatusCode: 200, Body: []byte("a")})
+	store.Set("b", Entry{StatusCode: 200, Body: []byte("b")})
+
+	if _, ok := store.Get("a"); !ok {
+		t.Fatal("expected to read key a")
+	}
+
+	store.Set("c", Entry{StatusCode: 200, Body: []byte("c")})
+
+	if _, ok := store.Get("b"); ok {
+		t.Fatal("expected key b to be evicted as LRU")
+	}
+	if _, ok := store.Get("a"); !ok {
+		t.Fatal("expected key a to remain in cache")
+	}
+	if _, ok := store.Get("c"); !ok {
+		t.Fatal("expected key c to be in cache")
+	}
+}
+
+func TestLookupSupportsVaryHeaders(t *testing.T) {
+	store := NewStoreWithOptions(Options{DefaultTTL: time.Minute, MaxEntries: 10, MaxBytes: 1024 * 1024, MaxEntryBytes: 1024})
+	policy := Policy{Cacheable: true, ExpiresAt: time.Now().Add(time.Minute), Vary: []string{"Accept-Language"}}
+
+	requestHeaders := http.Header{"Accept-Language": {"en-US"}}
+	if _, ok := store.SetWithRequest("GET /products", requestHeaders, Entry{StatusCode: 200, Body: []byte("en")}, policy); !ok {
+		t.Fatal("expected SetWithRequest to store entry")
+	}
+
+	entry, state, _ := store.Lookup("GET /products", http.Header{"Accept-Language": {"en-US"}})
+	if state != StateHit {
+		t.Fatalf("state = %s, want %s", state, StateHit)
+	}
+	if got := string(entry.Body); got != "en" {
+		t.Fatalf("body = %s, want en", got)
+	}
+
+	_, state, _ = store.Lookup("GET /products", http.Header{"Accept-Language": {"fr-FR"}})
+	if state != StateMiss {
+		t.Fatalf("state = %s, want %s", state, StateMiss)
+	}
+}
+
+func TestBuildBaseKeyNormalizesQuery(t *testing.T) {
+	u, err := url.Parse("http://example.com/items?b=2&a=3&a=1")
+	if err != nil {
+		t.Fatalf("parse url: %v", err)
+	}
+
+	key := BuildBaseKey("get", u)
+	if key != "GET /items?a=1&a=3&b=2" {
+		t.Fatalf("normalized key = %s", key)
 	}
 }
