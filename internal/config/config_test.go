@@ -132,3 +132,13 @@ origin: http://env-config.example
 		t.Fatalf("origin = %v, want http://env-config.example", cfg.Origin)
 	}
 }
+
+func TestParseReadsMaxResponseHeaderBytesFromFlag(t *testing.T) {
+	cfg, err := Parse([]string{"--port", "3001", "--origin", "http://example.com", "--max-response-header-bytes", "2048"})
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if cfg.MaxResponseHeaderBytes != 2048 {
+		t.Fatalf("max response header bytes = %d, want 2048", cfg.MaxResponseHeaderBytes)
+	}
+}
