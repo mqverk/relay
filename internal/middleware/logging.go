@@ -21,7 +21,10 @@ func Logging(logger *logging.Logger) Middleware {
 				"status":      rw.status,
 				"remote_addr": r.RemoteAddr,
 				"latency_ms":  float64(time.Since(start).Microseconds()) / 1000,
+				"latency_us":  time.Since(start).Microseconds(),
 				"cache":       rw.Header().Get("X-Cache"),
+				"cache_detail": rw.Header().Get("X-Cache-Detail"),
+				"request_id":  r.Header.Get("X-Request-Id"),
 			})
 		})
 	}
