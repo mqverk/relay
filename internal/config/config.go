@@ -101,20 +101,7 @@ func Parse(args []string) (Config, error) {
 	cfg.ConfigFile = configPath
 
 	if configPath != "" {
-		format, err := detectConfigFormat(configPath)
-		if err != nil {
-			return Config{}, err
-		}
-
-		var fc fileConfig
-		switch format {
-		case configFormatJSON:
-			fc, err = loadJSONConfig(configPath)
-		case configFormatYAML:
-			fc, err = loadYAMLConfig(configPath)
-		default:
-			return Config{}, fmt.Errorf("unsupported config file format: %s", configPath)
-		}
+		fc, err := loadFileConfig(configPath)
 		if err != nil {
 			return Config{}, err
 		}
@@ -295,6 +282,22 @@ func detectConfigFormat(path string) (configFormat, error) {
 		return configFormatYAML, nil
 	default:
 		return "", fmt.Errorf("unsupported config file extension: %s", ext)
+	}
+}
+
+func loadFileConfig(path string) (fileConfig, error) {
+	format, err := detectConfigFormat(path)
+	if err != nil {
+		return fileConfig{}, err
+	}
+
+	switch format {
+	case configFormatJSON:
+		return loadJSONConfig(path)
+	case configFormatYAML:
+		return loadYAMLConfig(path)
+	default:
+		return fileConfig{}, fmt.Errorf("unsupported config file format: %s", path)
 	}
 }
 
