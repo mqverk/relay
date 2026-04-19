@@ -137,3 +137,27 @@ func TestCacheAdminHandlerDeleteAll(t *testing.T) {
 		t.Fatalf("cache length = %d, want 0", store.Len())
 	}
 }
+
+func TestProtectedAdminEndpointsFlow(t *testing.T) {
+	store := cache.NewStoreWithOptions(cache.Options{DefaultTTL: time.Minute, MaxEntries: 10, MaxBytes: 1024 * 1024, MaxEntryBytes: 1024})
+	reg := metrics.New()
+
+	mux := http.NewServeMux()
+	mux.Handle("/_relay/health", ProtectWithAdminToken("secret", HealthHandler(time.Now())))
+	mux.Handle("/_relay/cache", ProtectWithAdminToken("secret", CacheAdminHandler(store, reg)))
+
+	unauth := httptest.NewRecorder()
+	unauthReq := httptest.NewRequest(http.MethodGet, "/_relay/health", nil)
+	mux.ServeHTTP(unauth, unauthReq)
+	if unauth.Code != http.StatusUnauthorized {
+		t.Fatalf("unauth status = %d, want 401", unauth.Code)
+	}
+
+	auth := httptest.NewRecorder()
+	authReq := httptest.NewRequest(http.MethodGet, "/_relay/health", nil)
+	authReq.Header.Set(adminTokenHeader, "secret")
+	mux.ServeHTTP(auth, authReq)
+	if auth.Code != http.StatusOK {
+		t.Fatalf("auth status = %d, want 200", auth.Code)
+	}
+}
