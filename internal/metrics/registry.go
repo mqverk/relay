@@ -29,6 +29,7 @@ type Registry struct {
 	mu sync.Mutex
 
 	requests map[requestKey]int64
+	cacheDecisions map[string]int64
 
 	latencyBuckets []float64
 	latencyCounts  []int64
@@ -43,6 +44,7 @@ func New() *Registry {
 	buckets := []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10}
 	return &Registry{
 		requests:       make(map[requestKey]int64),
+		cacheDecisions: make(map[string]int64),
 		latencyBuckets: buckets,
 		latencyCounts:  make([]int64, len(buckets)),
 	}
@@ -52,6 +54,9 @@ func New() *Registry {
 func (r *Registry) RecordRequest(method string, status int, cacheStatus string, duration time.Duration) {
 	r.mu.Lock()
 	r.requests[requestKey{Method: method, Status: status, Cache: cacheStatus}]++
+	if cacheStatus != "" {
+		r.cacheDecisions[cacheStatus]++
+	}
 
 	seconds := duration.Seconds()
 	r.latencyCount++
@@ -85,6 +90,10 @@ func (r *Registry) RenderPrometheus() string {
 	requestCopy := make(map[requestKey]int64, len(r.requests))
 	for k, v := range r.requests {
 		requestCopy[k] = v
+	}
+	cacheDecisionCopy := make(map[string]int64, len(r.cacheDecisions))
+	for k, v := range r.cacheDecisions {
+		cacheDecisionCopy[k] = v
 	}
 	bucketCopy := append([]float64(nil), r.latencyBuckets...)
 	countCopy := append([]int64(nil), r.latencyCounts...)
@@ -123,6 +132,17 @@ func (r *Registry) RenderPrometheus() string {
 	b.WriteString(fmt.Sprintf("relay_request_duration_seconds_bucket{le=\"+Inf\"} %d\n", latencyCount))
 	b.WriteString(fmt.Sprintf("relay_request_duration_seconds_sum %g\n", latencySum))
 	b.WriteString(fmt.Sprintf("relay_request_duration_seconds_count %d\n", latencyCount))
+
+	b.WriteString("# HELP relay_cache_decisions_total Total cache decisions by response cache state.\n")
+	b.WriteString("# TYPE relay_cache_decisions_total counter\n")
+	decisionKeys := make([]string, 0, len(cacheDecisionCopy))
+	for k := range cacheDecisionCopy {
+		decisionKeys = append(decisionKeys, k)
+	}
+	sort.Strings(decisionKeys)
+	for _, k := range decisionKeys {
+		b.WriteString(fmt.Sprintf("relay_cache_decisions_total{state=%q} %d\n", k, cacheDecisionCopy[k]))
+	}
 
 	b.WriteString("# HELP relay_cache_entries Number of entries currently in cache.\n")
 	b.WriteString("# TYPE relay_cache_entries gauge\n")
