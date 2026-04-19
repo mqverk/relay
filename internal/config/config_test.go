@@ -94,3 +94,16 @@ func TestParseHelpRequested(t *testing.T) {
 		t.Fatalf("expected ErrHelpRequested, got %v", err)
 	}
 }
+
+func TestParseRejectsUnsupportedConfigExtension(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "relay.toml")
+	if err := os.WriteFile(configPath, []byte("port=3000"), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	_, err := Parse([]string{"--config", configPath})
+	if err == nil {
+		t.Fatal("expected parse error for unsupported extension")
+	}
+}
