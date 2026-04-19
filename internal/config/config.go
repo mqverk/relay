@@ -221,6 +221,7 @@ type fileConfig struct {
 	StaleIfError          *string  `json:"stale_if_error" yaml:"stale_if_error"`
 	CacheMaxEntries       *int     `json:"cache_max_entries" yaml:"cache_max_entries"`
 	CacheMaxEntryBytes    *int     `json:"cache_max_entry_bytes" yaml:"cache_max_entry_bytes"`
+	CacheMaxBytes         *int64   `json:"cache_max_bytes" yaml:"cache_max_bytes"`
 	CacheMethods          []string `json:"cache_methods" yaml:"cache_methods"`
 	CacheBypassPaths      []string `json:"cache_bypass_paths" yaml:"cache_bypass_paths"`
 	CacheBypassHeaders    []string `json:"cache_bypass_headers" yaml:"cache_bypass_headers"`
@@ -325,6 +326,9 @@ func applyFileConfig(cfg *Config, fc fileConfig) {
 	}
 	if fc.CacheMaxEntryBytes != nil {
 		cfg.CacheMaxEntryBytes = *fc.CacheMaxEntryBytes
+	}
+	if fc.CacheMaxBytes != nil {
+		cfg.CacheMaxBytes = *fc.CacheMaxBytes
 	}
 	if len(fc.CacheMethods) > 0 {
 		cfg.CacheMethods = copyStringSlice(fc.CacheMethods)
