@@ -1,7 +1,23 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+	"os"
+
+	"relay/internal/cli"
+)
 
 func main() {
-	fmt.Println("relay: run with --help for usage")
+	cfg, err := cli.Parse(os.Args[1:])
+	if err != nil {
+		log.Fatalf("invalid arguments: %v", err)
+	}
+
+	if cfg.ClearCache {
+		fmt.Println("cache cleared")
+		return
+	}
+
+	log.Printf("relay configured: port=%d origin=%s", cfg.Port, cfg.Origin.String())
 }
