@@ -302,6 +302,37 @@ func (s *Store) Clear() {
 	s.mu.Unlock()
 }
 
+// DeleteBaseKey removes all variants under a base key and returns removed entry count.
+func (s *Store) DeleteBaseKey(baseKey string) int {
+	if strings.TrimSpace(baseKey) == "" {
+		return 0
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	variants := s.variantsByBase[baseKey]
+	if len(variants) == 0 {
+		return 0
+	}
+
+	keys := make([]string, 0, len(variants))
+	for key := range variants {
+		keys = append(keys, key)
+	}
+
+	removed := 0
+	for _, key := range keys {
+		ele, ok := s.entries[key]
+		if !ok {
+			continue
+		}
+		s.removeElement(ele)
+		removed++
+	}
+	return removed
+}
+
 // Len returns number of active entries.
 func (s *Store) Len() int {
 	s.mu.Lock()

@@ -139,3 +139,27 @@ func TestBuildBaseKeyNormalizesMethodAndEmptyPath(t *testing.T) {
 		t.Fatalf("normalized key = %s", key)
 	}
 }
+
+func TestDeleteBaseKeyRemovesAllVariants(t *testing.T) {
+	store := NewStoreWithOptions(Options{DefaultTTL: time.Minute, MaxEntries: 10, MaxBytes: 1024 * 1024, MaxEntryBytes: 1024})
+	baseKey := "GET /products"
+	policy := Policy{Cacheable: true, ExpiresAt: time.Now().Add(time.Minute), Vary: []string{"Accept-Language"}}
+
+	if _, ok := store.SetWithRequest(baseKey, http.Header{"Accept-Language": {"en-US"}}, Entry{StatusCode: 200, Body: []byte("en")}, policy); !ok {
+		t.Fatal("expected first variant to be stored")
+	}
+	if _, ok := store.SetWithRequest(baseKey, http.Header{"Accept-Language": {"fr-FR"}}, Entry{StatusCode: 200, Body: []byte("fr")}, policy); !ok {
+		t.Fatal("expected second variant to be stored")
+	}
+
+	removed := store.DeleteBaseKey(baseKey)
+	if removed != 2 {
+		t.Fatalf("removed = %d, want 2", removed)
+	}
+	if _, state, _ := store.Lookup(baseKey, http.Header{"Accept-Language": {"en-US"}}); state != StateMiss {
+		t.Fatalf("lookup state = %s, want %s", state, StateMiss)
+	}
+	if n := store.Len(); n != 0 {
+		t.Fatalf("cache length = %d, want 0", n)
+	}
+}

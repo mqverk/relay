@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -104,30 +103,7 @@ func Run(args []string) int {
 
 	mux := http.NewServeMux()
 	mux.Handle(metricsPath, metricsReg.Handler())
-	mux.Handle(cacheAdminPath, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			stats := store.Stats()
-			metricsReg.SetCacheSnapshot(metrics.CacheSnapshot{Entries: stats.Entries, SizeBytes: stats.SizeBytes, Hits: stats.Hits, Misses: stats.Misses, HitRatio: stats.HitRatio})
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"entries":    stats.Entries,
-				"size_bytes": stats.SizeBytes,
-				"hits":       stats.Hits,
-				"misses":     stats.Misses,
-				"stale_hits": stats.StaleHits,
-				"evictions":  stats.Evictions,
-				"hit_ratio":  stats.HitRatio,
-			})
-		case http.MethodDelete:
-			store.Clear()
-			metricsReg.SetCacheSnapshot(metrics.CacheSnapshot{})
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{"status": "cache_cleared"})
-		default:
-			w.WriteHeader(http.StatusMethodNotAllowed)
-		}
-	}))
+	mux.Handle(cacheAdminPath, CacheAdminHandler(store, metricsReg))
 	mux.Handle("/", h)
 
 	limiter := middleware.NewRateLimiterWithOptions(middleware.RateLimiterOptions{
