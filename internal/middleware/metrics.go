@@ -14,7 +14,7 @@ func Metrics(reg *metrics.Registry) Middleware {
 			start := time.Now()
 			rw := &responseRecorder{ResponseWriter: w, status: http.StatusOK}
 			next.ServeHTTP(rw, r)
-			reg.RecordRequest(r.Method, rw.status, rw.Header().Get("X-Cache"), time.Since(start))
+			reg.RecordRequest(r.Method, rw.status, rw.Header().Get("X-Cache"), rw.Header().Get("X-Cache-Detail"), time.Since(start))
 		})
 	}
 }

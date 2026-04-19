@@ -15,6 +15,11 @@ type requestKey struct {
 	Cache  string
 }
 
+type cacheDecisionDetailKey struct {
+	State  string
+	Detail string
+}
+
 // CacheSnapshot captures cache metrics for exposition.
 type CacheSnapshot struct {
 	Entries   int
@@ -28,8 +33,9 @@ type CacheSnapshot struct {
 type Registry struct {
 	mu sync.Mutex
 
-	requests map[requestKey]int64
-	cacheDecisions map[string]int64
+	requests             map[requestKey]int64
+	cacheDecisions       map[string]int64
+	cacheDecisionDetails map[cacheDecisionDetailKey]int64
 
 	latencyBuckets []float64
 	latencyCounts  []int64
@@ -43,19 +49,23 @@ type Registry struct {
 func New() *Registry {
 	buckets := []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10}
 	return &Registry{
-		requests:       make(map[requestKey]int64),
-		cacheDecisions: make(map[string]int64),
-		latencyBuckets: buckets,
-		latencyCounts:  make([]int64, len(buckets)),
+		requests:             make(map[requestKey]int64),
+		cacheDecisions:       make(map[string]int64),
+		cacheDecisionDetails: make(map[cacheDecisionDetailKey]int64),
+		latencyBuckets:       buckets,
+		latencyCounts:        make([]int64, len(buckets)),
 	}
 }
 
 // RecordRequest updates request and latency metrics.
-func (r *Registry) RecordRequest(method string, status int, cacheStatus string, duration time.Duration) {
+func (r *Registry) RecordRequest(method string, status int, cacheStatus, cacheDetail string, duration time.Duration) {
 	r.mu.Lock()
 	r.requests[requestKey{Method: method, Status: status, Cache: cacheStatus}]++
 	if cacheStatus != "" {
 		r.cacheDecisions[cacheStatus]++
+	}
+	if cacheDetail != "" {
+		r.cacheDecisionDetails[cacheDecisionDetailKey{State: cacheStatus, Detail: cacheDetail}]++
 	}
 
 	seconds := duration.Seconds()
@@ -94,6 +104,10 @@ func (r *Registry) RenderPrometheus() string {
 	cacheDecisionCopy := make(map[string]int64, len(r.cacheDecisions))
 	for k, v := range r.cacheDecisions {
 		cacheDecisionCopy[k] = v
+	}
+	cacheDecisionDetailCopy := make(map[cacheDecisionDetailKey]int64, len(r.cacheDecisionDetails))
+	for k, v := range r.cacheDecisionDetails {
+		cacheDecisionDetailCopy[k] = v
 	}
 	bucketCopy := append([]float64(nil), r.latencyBuckets...)
 	countCopy := append([]int64(nil), r.latencyCounts...)
@@ -142,6 +156,22 @@ func (r *Registry) RenderPrometheus() string {
 	sort.Strings(decisionKeys)
 	for _, k := range decisionKeys {
 		b.WriteString(fmt.Sprintf("relay_cache_decisions_total{state=%q} %d\n", k, cacheDecisionCopy[k]))
+	}
+
+	b.WriteString("# HELP relay_cache_decision_details_total Total cache decisions by state and detail.\n")
+	b.WriteString("# TYPE relay_cache_decision_details_total counter\n")
+	detailKeys := make([]cacheDecisionDetailKey, 0, len(cacheDecisionDetailCopy))
+	for k := range cacheDecisionDetailCopy {
+		detailKeys = append(detailKeys, k)
+	}
+	sort.Slice(detailKeys, func(i, j int) bool {
+		if detailKeys[i].State != detailKeys[j].State {
+			return detailKeys[i].State < detailKeys[j].State
+		}
+		return detailKeys[i].Detail < detailKeys[j].Detail
+	})
+	for _, k := range detailKeys {
+		b.WriteString(fmt.Sprintf("relay_cache_decision_details_total{state=%q,detail=%q} %d\n", k.State, k.Detail, cacheDecisionDetailCopy[k]))
 	}
 
 	b.WriteString("# HELP relay_cache_entries Number of entries currently in cache.\n")
