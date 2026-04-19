@@ -330,6 +330,58 @@ func TestHandlerSeparatesCoalescingForDifferentHeaders(t *testing.T) {
 	}
 }
 
+func TestHandlerBackgroundRevalidationRefreshesStaleEntry(t *testing.T) {
+	var calls int32
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		call := atomic.AddInt32(&calls, 1)
+		if call == 1 {
+			w.Header().Set("Cache-Control", "max-age=0, stale-while-revalidate=30")
+			w.Header().Set("ETag", `"v1"`)
+			_, _ = w.Write([]byte("stale-body"))
+			return
+		}
+		w.Header().Set("Cache-Control", "max-age=60")
+		w.Header().Set("ETag", `"v2"`)
+		_, _ = w.Write([]byte("fresh-body"))
+	}))
+	defer origin.Close()
+
+	h := mustNewAdvancedHandler(t, origin.URL)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+
+	_, _ = mustGet(t, srv.URL+"/products")
+	res2, body2 := mustGet(t, srv.URL+"/products")
+	if got := res2.Header.Get("X-Cache"); got != cacheHit {
+		t.Fatalf("second response X-Cache = %q, want HIT", got)
+	}
+	if got := res2.Header.Get("X-Cache-Detail"); got != "STALE" {
+		t.Fatalf("second response detail = %q, want STALE", got)
+	}
+	if body2 != "stale-body" {
+		t.Fatalf("second response body = %q, want stale-body", body2)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if atomic.LoadInt32(&calls) >= 2 {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if got := atomic.LoadInt32(&calls); got < 2 {
+		t.Fatalf("expected background revalidation call, got %d", got)
+	}
+
+	res3, body3 := mustGet(t, srv.URL+"/products")
+	if got := res3.Header.Get("X-Cache"); got != cacheHit {
+		t.Fatalf("third response X-Cache = %q, want HIT", got)
+	}
+	if body3 != "fresh-body" {
+		t.Fatalf("third response body = %q, want fresh-body", body3)
+	}
+}
+
 func mustNewAdvancedHandler(t *testing.T, originRaw string) *Handler {
 	t.Helper()
 	originURL, err := url.Parse(originRaw)
