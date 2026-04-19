@@ -143,6 +143,16 @@ func TestParseReadsMaxResponseHeaderBytesFromFlag(t *testing.T) {
 	}
 }
 
+func TestParseReadsCacheMaxBytesFromFlag(t *testing.T) {
+	cfg, err := Parse([]string{"--port", "3001", "--origin", "http://example.com", "--cache-max-bytes", "4096"})
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if cfg.CacheMaxBytes != 4096 {
+		t.Fatalf("cache max bytes = %d, want 4096", cfg.CacheMaxBytes)
+	}
+}
+
 func TestParseRejectsNonPositiveMaxResponseHeaderBytes(t *testing.T) {
 	_, err := Parse([]string{"--port", "3001", "--origin", "http://example.com", "--max-response-header-bytes", "0"})
 	if err == nil {
