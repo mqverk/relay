@@ -201,3 +201,27 @@ func TestParseRejectsNonPositiveCacheMaxBytes(t *testing.T) {
 		t.Fatal("expected parse error for non-positive cache max bytes")
 	}
 }
+
+func TestParseReadsRateLimitTrustProxyFromEnv(t *testing.T) {
+	t.Setenv("RELAY_PORT", "3001")
+	t.Setenv("RELAY_ORIGIN", "http://env.example")
+	t.Setenv("RELAY_RATE_LIMIT_TRUST_PROXY", "true")
+
+	cfg, err := Parse(nil)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if !cfg.RateLimitTrustProxy {
+		t.Fatal("rate limit trust proxy = false, want true")
+	}
+}
+
+func TestParseReadsRateLimitTrustProxyFromFlag(t *testing.T) {
+	cfg, err := Parse([]string{"--port", "3001", "--origin", "http://example.com", "--rate-limit-trust-proxy"})
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if !cfg.RateLimitTrustProxy {
+		t.Fatal("rate limit trust proxy = false, want true")
+	}
+}

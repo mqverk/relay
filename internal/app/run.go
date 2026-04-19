@@ -130,7 +130,11 @@ func Run(args []string) int {
 	}))
 	mux.Handle("/", h)
 
-	limiter := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
+	limiter := middleware.NewRateLimiterWithOptions(middleware.RateLimiterOptions{
+		RPS:        cfg.RateLimitRPS,
+		Burst:      cfg.RateLimitBurst,
+		TrustProxy: cfg.RateLimitTrustProxy,
+	})
 	handler := middleware.Chain(
 		mux,
 		middleware.Recover(errHandler, logger),

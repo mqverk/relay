@@ -25,5 +25,6 @@
   "metrics_path": "/_relay/metrics",
   "admin_prefix": "/_relay",
   "rate_limit_rps": 200,
-  "rate_limit_burst": 400
+  "rate_limit_burst": 400,
+  "rate_limit_trust_proxy": false
 }

@@ -59,6 +59,7 @@ type Config struct {
 	AdminPrefix           string
 	RateLimitRPS          float64
 	RateLimitBurst        int
+	RateLimitTrustProxy   bool
 }
 
 // Usage returns command usage text.
@@ -87,6 +88,7 @@ Common options:
   --debug                         include detailed debug output
   --metrics-path <path>           metrics endpoint path
   --admin-prefix <path>           admin endpoint prefix
+	--rate-limit-trust-proxy        trust X-Forwarded-For/X-Real-Ip for rate-limit client identity
 `
 }
 
@@ -212,6 +214,7 @@ func defaultConfig() Config {
 		AdminPrefix:           "/_relay",
 		RateLimitRPS:          200,
 		RateLimitBurst:        400,
+		RateLimitTrustProxy:   false,
 	}
 }
 
@@ -245,6 +248,7 @@ type fileConfig struct {
 	AdminPrefix           *string  `json:"admin_prefix" yaml:"admin_prefix"`
 	RateLimitRPS          *float64 `json:"rate_limit_rps" yaml:"rate_limit_rps"`
 	RateLimitBurst        *int     `json:"rate_limit_burst" yaml:"rate_limit_burst"`
+	RateLimitTrustProxy   *bool    `json:"rate_limit_trust_proxy" yaml:"rate_limit_trust_proxy"`
 }
 
 func loadJSONConfig(path string) (fileConfig, error) {
@@ -381,6 +385,9 @@ func applyFileConfig(cfg *Config, fc fileConfig) {
 	if fc.RateLimitBurst != nil {
 		cfg.RateLimitBurst = *fc.RateLimitBurst
 	}
+	if fc.RateLimitTrustProxy != nil {
+		cfg.RateLimitTrustProxy = *fc.RateLimitTrustProxy
+	}
 }
 
 func applyEnvConfig(cfg *Config) {
@@ -411,6 +418,7 @@ func applyEnvConfig(cfg *Config) {
 	applyStringEnv("RELAY_ADMIN_PREFIX", &cfg.AdminPrefix)
 	applyFloatEnv("RELAY_RATE_LIMIT_RPS", &cfg.RateLimitRPS)
 	applyIntEnv("RELAY_RATE_LIMIT_BURST", &cfg.RateLimitBurst)
+	applyBoolEnv("RELAY_RATE_LIMIT_TRUST_PROXY", &cfg.RateLimitTrustProxy)
 }
 
 func parseFlags(cfg *Config, args []string) error {
@@ -451,6 +459,7 @@ func parseFlags(cfg *Config, args []string) error {
 	fs.StringVar(&cfg.AdminPrefix, "admin-prefix", cfg.AdminPrefix, "admin endpoint prefix")
 	fs.Float64Var(&cfg.RateLimitRPS, "rate-limit-rps", cfg.RateLimitRPS, "rate limit requests per second per client")
 	fs.IntVar(&cfg.RateLimitBurst, "rate-limit-burst", cfg.RateLimitBurst, "rate limit burst per client")
+	fs.BoolVar(&cfg.RateLimitTrustProxy, "rate-limit-trust-proxy", cfg.RateLimitTrustProxy, "trust X-Forwarded-For/X-Real-Ip for rate limiting")
 
 	if err := fs.Parse(args); err != nil {
 		return err
