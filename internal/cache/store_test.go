@@ -127,3 +127,15 @@ func TestBuildBaseKeyNormalizesQuery(t *testing.T) {
 		t.Fatalf("normalized key = %s", key)
 	}
 }
+
+func TestBuildBaseKeyNormalizesMethodAndEmptyPath(t *testing.T) {
+	u, err := url.Parse("http://example.com")
+	if err != nil {
+		t.Fatalf("parse url: %v", err)
+	}
+
+	key := BuildBaseKey("get", u)
+	if key != "GET /" {
+		t.Fatalf("normalized key = %s", key)
+	}
+}
