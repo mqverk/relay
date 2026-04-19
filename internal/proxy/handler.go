@@ -201,7 +201,14 @@ func NewHandlerWithOptions(opts HandlerOptions) (*Handler, error) {
 
 // ServeHTTP handles incoming requests with cache-aware proxying.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if h.shouldBypassCache(r) || !h.isCacheMethod(r.Method) {
+	if !h.isCacheMethod(r.Method) {
+		h.logger.Debug("cache bypass", map[string]any{"method": r.Method, "path": r.URL.Path, "reason": "method_not_cacheable"})
+		h.forwardDirect(w, r)
+		return
+	}
+
+	if reason, bypass := h.cacheBypassReason(r); bypass {
+		h.logger.Debug("cache bypass", map[string]any{"method": r.Method, "path": r.URL.Path, "reason": reason})
 		h.forwardDirect(w, r)
 		return
 	}
@@ -212,6 +219,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch state {
 	case cache.StateHit:
+		h.logger.Debug("cache hit", map[string]any{"method": r.Method, "path": r.URL.Path})
 		if writeConditionalNotModified(w, r, entry, cacheHit) {
 			return
 		}
@@ -219,6 +227,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	case cache.StateStale:
 		if entry.CanServeStaleWhileRevalidate(now) {
+			h.logger.Debug("cache stale hit", map[string]any{"method": r.Method, "path": r.URL.Path, "mode": "stale_while_revalidate"})
 			h.revalidateInBackground(r, baseKey, entry)
 			if writeConditionalNotModified(w, r, entry, cacheHit) {
 				return
@@ -234,6 +243,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if state == cache.StateStale && entry.CanServeStaleIfError(now) {
+			h.logger.Debug("cache stale hit", map[string]any{"method": r.Method, "path": r.URL.Path, "mode": "stale_if_error"})
 			writeCachedResponse(w, entry, cacheHit, "STALE_IF_ERROR")
 			return
 		}
@@ -242,6 +252,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.logger.Debug("cache miss", map[string]any{"method": r.Method, "path": r.URL.Path})
 	writeOriginResult(w, result)
 }
 
@@ -473,25 +484,30 @@ func (h *Handler) isCacheMethod(method string) bool {
 }
 
 func (h *Handler) shouldBypassCache(r *http.Request) bool {
+	_, bypass := h.cacheBypassReason(r)
+	return bypass
+}
+
+func (h *Handler) cacheBypassReason(r *http.Request) (string, bool) {
 	for _, prefix := range h.cacheBypassPaths {
 		if prefix != "" && strings.HasPrefix(r.URL.Path, prefix) {
-			return true
+			return "path_prefix", true
 		}
 	}
 	for header := range h.cacheBypassHeaders {
 		if strings.TrimSpace(r.Header.Get(header)) != "" {
-			return true
+			return "header_" + strings.ToLower(header), true
 		}
 	}
 	cacheControl := strings.ToLower(strings.TrimSpace(r.Header.Get("Cache-Control")))
 	if strings.Contains(cacheControl, "no-store") || strings.Contains(cacheControl, "no-cache") {
-		return true
+		return "cache_control", true
 	}
 	pragma := strings.ToLower(strings.TrimSpace(r.Header.Get("Pragma")))
 	if strings.Contains(pragma, "no-cache") {
-		return true
+		return "pragma", true
 	}
-	return false
+	return "", false
 }
 
 func writeOriginResult(w http.ResponseWriter, result originResult) {
