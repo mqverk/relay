@@ -81,7 +81,7 @@ relay --help
 
 1. CLI flags
 2. Environment variables (`RELAY_*`)
-3. Config file (`--config` JSON)
+3. Config file (`--config` JSON or YAML)
 
 Sample config file is provided at `relay.example.json`.
 
