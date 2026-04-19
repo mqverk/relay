@@ -148,6 +148,9 @@ func Parse(args []string) (Config, error) {
 	if cfg.CacheMaxEntryBytes <= 0 {
 		return Config{}, errors.New("--cache-max-entry-bytes must be greater than 0")
 	}
+	if cfg.MaxResponseHeaderBytes <= 0 {
+		return Config{}, errors.New("--max-response-header-bytes must be greater than 0")
+	}
 	if cfg.RateLimitRPS <= 0 {
 		return Config{}, errors.New("--rate-limit-rps must be greater than 0")
 	}
