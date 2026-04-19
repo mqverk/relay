@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestRateLimiterMiddleware(t *testing.T) {
@@ -90,4 +91,23 @@ func performRateLimitRequest(h http.Handler, remoteAddr string, headers map[stri
 	}
 	h.ServeHTTP(rr, req)
 	return rr.Code
+}
+
+func TestRateLimiterEvictsStaleClients(t *testing.T) {
+	limiter := NewRateLimiterWithOptions(RateLimiterOptions{RPS: 1, Burst: 1})
+	limiter.bucketTTL = 2 * time.Second
+	limiter.cleanupInterval = 1 * time.Second
+
+	_, _, _ = limiter.allow("1.1.1.1", time.Unix(0, 0))
+	_, _, _ = limiter.allow("2.2.2.2", time.Unix(0, 0))
+	_, _, _ = limiter.allow("1.1.1.1", time.Unix(5, 0))
+
+	limiter.mu.Lock()
+	defer limiter.mu.Unlock()
+	if _, ok := limiter.clients["2.2.2.2"]; ok {
+		t.Fatal("expected stale client bucket to be evicted")
+	}
+	if _, ok := limiter.clients["1.1.1.1"]; !ok {
+		t.Fatal("expected active client bucket to exist")
+	}
 }

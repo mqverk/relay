@@ -17,11 +17,14 @@ type bucket struct {
 
 // RateLimiter enforces per-client token-bucket limits.
 type RateLimiter struct {
-	mu      sync.Mutex
-	rps     float64
-	burst   float64
-	trustProxy bool
-	clients map[string]*bucket
+	mu              sync.Mutex
+	rps             float64
+	burst           float64
+	trustProxy      bool
+	clients         map[string]*bucket
+	bucketTTL       time.Duration
+	cleanupInterval time.Duration
+	lastCleanup     time.Time
 }
 
 // RateLimiterOptions configures a rate limiter.
@@ -49,6 +52,8 @@ func NewRateLimiterWithOptions(opts RateLimiterOptions) *RateLimiter {
 		burst:      float64(opts.Burst),
 		trustProxy: opts.TrustProxy,
 		clients:    make(map[string]*bucket),
+		bucketTTL:  10 * time.Minute,
+		cleanupInterval: 1 * time.Minute,
 	}
 }
 
@@ -98,6 +103,7 @@ func firstForwardedFor(value string) string {
 func (rl *RateLimiter) allow(clientID string, now time.Time) (bool, int, int) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
+	rl.maybeCleanup(now)
 
 	b, ok := rl.clients[clientID]
 	if !ok {
@@ -131,6 +137,22 @@ func (rl *RateLimiter) allow(clientID string, now time.Time) (bool, int, int) {
 		remaining = 0
 	}
 	return true, remaining, 0
+}
+
+func (rl *RateLimiter) maybeCleanup(now time.Time) {
+	if rl.cleanupInterval <= 0 || rl.bucketTTL <= 0 {
+		return
+	}
+	if !rl.lastCleanup.IsZero() && now.Sub(rl.lastCleanup) < rl.cleanupInterval {
+		return
+	}
+	cutoff := now.Add(-rl.bucketTTL)
+	for key, b := range rl.clients {
+		if b.last.Before(cutoff) {
+			delete(rl.clients, key)
+		}
+	}
+	rl.lastCleanup = now
 }
 
 func clientIP(remoteAddr string) string {
