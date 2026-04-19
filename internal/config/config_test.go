@@ -154,6 +154,20 @@ origin: http://env-config.example
 	}
 }
 
+func TestParseReadsCacheMaxBytesFromEnv(t *testing.T) {
+	t.Setenv("RELAY_PORT", "3001")
+	t.Setenv("RELAY_ORIGIN", "http://env.example")
+	t.Setenv("RELAY_CACHE_MAX_BYTES", "16384")
+
+	cfg, err := Parse(nil)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if cfg.CacheMaxBytes != 16384 {
+		t.Fatalf("cache max bytes = %d, want 16384", cfg.CacheMaxBytes)
+	}
+}
+
 func TestParseReadsMaxResponseHeaderBytesFromFlag(t *testing.T) {
 	cfg, err := Parse([]string{"--port", "3001", "--origin", "http://example.com", "--max-response-header-bytes", "2048"})
 	if err != nil {
