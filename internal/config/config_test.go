@@ -78,6 +78,27 @@ cache_methods:
 	}
 }
 
+func TestParseReadsCacheMaxBytesFromConfigFile(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "relay.json")
+	configJSON := `{
+  "port": 3200,
+  "origin": "http://file.example",
+  "cache_max_bytes": 8192
+}`
+	if err := os.WriteFile(configPath, []byte(configJSON), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := Parse([]string{"--config", configPath})
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if cfg.CacheMaxBytes != 8192 {
+		t.Fatalf("cache max bytes = %d, want 8192", cfg.CacheMaxBytes)
+	}
+}
+
 func TestParseAllowsCacheStatsWithoutOrigin(t *testing.T) {
 	cfg, err := Parse([]string{"--cache-stats"})
 	if err != nil {
