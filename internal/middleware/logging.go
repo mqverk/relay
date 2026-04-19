@@ -14,14 +14,15 @@ func Logging(logger *logging.Logger) Middleware {
 			start := time.Now()
 			rw := &responseRecorder{ResponseWriter: w, status: http.StatusOK}
 			next.ServeHTTP(rw, r)
+			latency := time.Since(start)
 			logger.Info("request", map[string]any{
 				"method":      r.Method,
 				"path":        r.URL.Path,
 				"query":       r.URL.RawQuery,
 				"status":      rw.status,
 				"remote_addr": r.RemoteAddr,
-				"latency_ms":  float64(time.Since(start).Microseconds()) / 1000,
-				"latency_us":  time.Since(start).Microseconds(),
+				"latency_ms":  float64(latency.Microseconds()) / 1000,
+				"latency_us":  latency.Microseconds(),
 				"cache":       rw.Header().Get("X-Cache"),
 				"cache_detail": rw.Header().Get("X-Cache-Detail"),
 				"request_id":  r.Header.Get("X-Request-Id"),
