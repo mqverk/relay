@@ -1,8 +1,11 @@
 package errors
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
 )
 
 // Category groups errors by failure domain.
@@ -34,6 +37,27 @@ func (e *AppError) Error() string {
 		return fmt.Sprintf("%s: %s", e.Code, e.Message)
 	}
 	return fmt.Sprintf("%s: %s: %v", e.Code, e.Message, e.Cause)
+}
+
+// HTTPStatus maps error category to HTTP status code.
+func (e *AppError) HTTPStatus() int {
+	if e == nil {
+		return http.StatusInternalServerError
+	}
+	switch e.Category {
+	case CategoryConfig:
+		return http.StatusBadRequest
+	case CategoryRate:
+		return http.StatusTooManyRequests
+	case CategoryTimeout:
+		return http.StatusGatewayTimeout
+	case CategoryNetwork:
+		return http.StatusBadGateway
+	case CategoryCache:
+		return http.StatusServiceUnavailable
+	default:
+		return http.StatusInternalServerError
+	}
 }
 
 // Unwrap exposes the wrapped cause.
@@ -68,4 +92,26 @@ func AsAppError(err error) (*AppError, bool) {
 		return appErr, true
 	}
 	return nil, false
+}
+
+// Normalize converts arbitrary errors into AppError for consistent handling.
+func Normalize(err error) *AppError {
+	if err == nil {
+		return New(CategoryInternal, "internal_error", "internal server error")
+	}
+	if appErr, ok := AsAppError(err); ok {
+		return appErr
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return Wrap(CategoryTimeout, "origin_timeout", "origin request timed out", err)
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return Wrap(CategoryTimeout, "origin_timeout", "origin request timed out", err)
+	}
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return Wrap(CategoryNetwork, "dns_failure", "dns resolution failed for origin", err)
+	}
+	return Wrap(CategoryNetwork, "origin_network_error", "origin request failed", err)
 }
