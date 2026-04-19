@@ -20,6 +20,8 @@ It forwards requests to an origin, caches eligible responses with policy-aware b
 - Admin HTTP endpoints for cache stats and cache clear
 - CLI config layering: flags > environment > config file
 - Middleware pipeline (request id, panic recovery, logging, metrics, rate limiting, hooks)
+- Rate limit response headers (`X-RateLimit-*`) and `Retry-After` on 429s
+- Optional trusted-proxy rate limiting via `X-Forwarded-For` / `X-Real-Ip`
 
 ## Requirements
 
