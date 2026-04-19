@@ -81,7 +81,7 @@ func TestStoreEvictsLeastRecentlyUsed(t *testing.T) {
 }
 
 func TestStoreEvictsWhenByteLimitExceeded(t *testing.T) {
-	store := NewStoreWithOptions(Options{DefaultTTL: time.Minute, MaxEntries: 10, MaxBytes: 40, MaxEntryBytes: 1024})
+	store := NewStoreWithOptions(Options{DefaultTTL: time.Minute, MaxEntries: 10, MaxBytes: 30, MaxEntryBytes: 1024})
 	store.Set("a", Entry{StatusCode: 200, Body: []byte("aaaaaaaaaaaaaaaaaaaa")})
 	store.Set("b", Entry{StatusCode: 200, Body: []byte("bbbbbbbbbbbbbbbbbbbb")})
 
