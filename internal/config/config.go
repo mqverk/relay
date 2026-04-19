@@ -46,6 +46,7 @@ type Config struct {
 	DialTimeout           time.Duration
 	IdleConnTimeout       time.Duration
 	ResponseHeaderTimeout time.Duration
+	MaxResponseHeaderBytes int64
 	MaxIdleConns          int
 	MaxIdleConnsPerHost   int
 	MaxConnsPerHost       int
@@ -189,6 +190,7 @@ func defaultConfig() Config {
 		DialTimeout:           10 * time.Second,
 		IdleConnTimeout:       90 * time.Second,
 		ResponseHeaderTimeout: 15 * time.Second,
+		MaxResponseHeaderBytes: 1 << 20,
 		MaxIdleConns:          512,
 		MaxIdleConnsPerHost:   128,
 		MaxConnsPerHost:       256,
