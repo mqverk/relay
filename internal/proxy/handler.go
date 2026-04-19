@@ -48,6 +48,7 @@ type HandlerOptions struct {
 	DialTimeout           time.Duration
 	IdleConnTimeout       time.Duration
 	ResponseHeaderTimeout time.Duration
+	MaxResponseHeaderBytes int64
 	MaxIdleConns          int
 	MaxIdleConnsPerHost   int
 	MaxConnsPerHost       int
@@ -90,6 +91,7 @@ func NewHandler(origin *url.URL, store *cache.Store, stdLogger *log.Logger) (*Ha
 		DialTimeout:           10 * time.Second,
 		IdleConnTimeout:       90 * time.Second,
 		ResponseHeaderTimeout: 15 * time.Second,
+		MaxResponseHeaderBytes: 1 << 20,
 		MaxIdleConns:          512,
 		MaxIdleConnsPerHost:   128,
 		MaxConnsPerHost:       256,
@@ -130,6 +132,9 @@ func NewHandlerWithOptions(opts HandlerOptions) (*Handler, error) {
 	}
 	if opts.ResponseHeaderTimeout <= 0 {
 		opts.ResponseHeaderTimeout = 15 * time.Second
+	}
+	if opts.MaxResponseHeaderBytes <= 0 {
+		opts.MaxResponseHeaderBytes = 1 << 20
 	}
 	if opts.MaxIdleConns <= 0 {
 		opts.MaxIdleConns = 512
