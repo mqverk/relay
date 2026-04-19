@@ -42,3 +42,52 @@ func TestRateLimiterMiddleware(t *testing.T) {
 		t.Fatal("expected Retry-After header on rate-limited response")
 	}
 }
+
+func TestRateLimiterUsesForwardedForWhenTrusted(t *testing.T) {
+	limiter := NewRateLimiterWithOptions(RateLimiterOptions{RPS: 1, Burst: 1, TrustProxy: true})
+	h := limiter.Middleware()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	status1 := performRateLimitRequest(h, "127.0.0.1:12345", map[string]string{"X-Forwarded-For": "1.1.1.1"})
+	status2 := performRateLimitRequest(h, "127.0.0.1:12345", map[string]string{"X-Forwarded-For": "2.2.2.2"})
+	status3 := performRateLimitRequest(h, "127.0.0.1:12345", map[string]string{"X-Forwarded-For": "1.1.1.1"})
+
+	if status1 != http.StatusOK {
+		t.Fatalf("status1 = %d, want 200", status1)
+	}
+	if status2 != http.StatusOK {
+		t.Fatalf("status2 = %d, want 200", status2)
+	}
+	if status3 != http.StatusTooManyRequests {
+		t.Fatalf("status3 = %d, want 429", status3)
+	}
+}
+
+func TestRateLimiterIgnoresForwardedForWhenNotTrusted(t *testing.T) {
+	limiter := NewRateLimiterWithOptions(RateLimiterOptions{RPS: 1, Burst: 1, TrustProxy: false})
+	h := limiter.Middleware()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	status1 := performRateLimitRequest(h, "127.0.0.1:12345", map[string]string{"X-Forwarded-For": "1.1.1.1"})
+	status2 := performRateLimitRequest(h, "127.0.0.1:12345", map[string]string{"X-Forwarded-For": "2.2.2.2"})
+
+	if status1 != http.StatusOK {
+		t.Fatalf("status1 = %d, want 200", status1)
+	}
+	if status2 != http.StatusTooManyRequests {
+		t.Fatalf("status2 = %d, want 429", status2)
+	}
+}
+
+func performRateLimitRequest(h http.Handler, remoteAddr string, headers map[string]string) int {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = remoteAddr
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	h.ServeHTTP(rr, req)
+	return rr.Code
+}

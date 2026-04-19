@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -19,21 +20,35 @@ type RateLimiter struct {
 	mu      sync.Mutex
 	rps     float64
 	burst   float64
+	trustProxy bool
 	clients map[string]*bucket
+}
+
+// RateLimiterOptions configures a rate limiter.
+type RateLimiterOptions struct {
+	RPS        float64
+	Burst      int
+	TrustProxy bool
 }
 
 // NewRateLimiter creates a new rate limiter.
 func NewRateLimiter(rps float64, burst int) *RateLimiter {
-	if rps <= 0 {
-		rps = 100
+	return NewRateLimiterWithOptions(RateLimiterOptions{RPS: rps, Burst: burst})
+}
+
+// NewRateLimiterWithOptions creates a new rate limiter with extended options.
+func NewRateLimiterWithOptions(opts RateLimiterOptions) *RateLimiter {
+	if opts.RPS <= 0 {
+		opts.RPS = 100
 	}
-	if burst <= 0 {
-		burst = 200
+	if opts.Burst <= 0 {
+		opts.Burst = 200
 	}
 	return &RateLimiter{
-		rps:     rps,
-		burst:   float64(burst),
-		clients: make(map[string]*bucket),
+		rps:        opts.RPS,
+		burst:      float64(opts.Burst),
+		trustProxy: opts.TrustProxy,
+		clients:    make(map[string]*bucket),
 	}
 }
 
@@ -41,7 +56,7 @@ func NewRateLimiter(rps float64, burst int) *RateLimiter {
 func (rl *RateLimiter) Middleware() Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			clientID := clientIP(r.RemoteAddr)
+			clientID := rl.clientIDFromRequest(r)
 			allowed, remaining, retryAfter := rl.allow(clientID, time.Now())
 			w.Header().Set("X-RateLimit-Limit", strconv.Itoa(int(rl.burst)))
 			w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(remaining))
@@ -55,6 +70,29 @@ func (rl *RateLimiter) Middleware() Middleware {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func (rl *RateLimiter) clientIDFromRequest(r *http.Request) string {
+	if rl.trustProxy {
+		if forwarded := firstForwardedFor(r.Header.Get("X-Forwarded-For")); forwarded != "" {
+			return forwarded
+		}
+		realIP := strings.TrimSpace(r.Header.Get("X-Real-Ip"))
+		if net.ParseIP(realIP) != nil {
+			return realIP
+		}
+	}
+	return clientIP(r.RemoteAddr)
+}
+
+func firstForwardedFor(value string) string {
+	for _, token := range strings.Split(value, ",") {
+		candidate := strings.TrimSpace(token)
+		if net.ParseIP(candidate) != nil {
+			return candidate
+		}
+	}
+	return ""
 }
 
 func (rl *RateLimiter) allow(clientID string, now time.Time) (bool, int, int) {
