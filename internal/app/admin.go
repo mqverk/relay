@@ -4,10 +4,30 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"relay/internal/cache"
 	"relay/internal/metrics"
 )
+
+// HealthHandler builds a health endpoint handler with uptime details.
+func HealthHandler(startedAt time.Time) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status":         "ok",
+			"uptime_seconds": int64(time.Since(startedAt).Seconds()),
+		})
+	})
+}
+
+// ReadinessHandler builds a readiness endpoint handler.
+func ReadinessHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": "ready"})
+	})
+}
 
 // CacheAdminHandler builds the cache admin endpoint handler.
 func CacheAdminHandler(store *cache.Store, metricsReg *metrics.Registry) http.Handler {

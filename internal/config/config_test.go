@@ -256,3 +256,34 @@ func TestParseReadsRateLimitTrustProxyFromFlag(t *testing.T) {
 		t.Fatal("rate limit trust proxy = false, want true")
 	}
 }
+
+func TestParseReadsHealthAndReadinessPathsFromFlag(t *testing.T) {
+	cfg, err := Parse([]string{"--port", "3001", "--origin", "http://example.com", "--health-path", "/healthz", "--readiness-path", "/readyz"})
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if cfg.HealthPath != "/healthz" {
+		t.Fatalf("health path = %q, want /healthz", cfg.HealthPath)
+	}
+	if cfg.ReadinessPath != "/readyz" {
+		t.Fatalf("readiness path = %q, want /readyz", cfg.ReadinessPath)
+	}
+}
+
+func TestParseReadsHealthAndReadinessPathsFromEnv(t *testing.T) {
+	t.Setenv("RELAY_PORT", "3001")
+	t.Setenv("RELAY_ORIGIN", "http://env.example")
+	t.Setenv("RELAY_HEALTH_PATH", "/health-env")
+	t.Setenv("RELAY_READINESS_PATH", "/ready-env")
+
+	cfg, err := Parse(nil)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if cfg.HealthPath != "/health-env" {
+		t.Fatalf("health path = %q, want /health-env", cfg.HealthPath)
+	}
+	if cfg.ReadinessPath != "/ready-env" {
+		t.Fatalf("readiness path = %q, want /ready-env", cfg.ReadinessPath)
+	}
+}

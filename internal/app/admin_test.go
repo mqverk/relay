@@ -11,6 +11,42 @@ import (
 	"relay/internal/metrics"
 )
 
+func TestHealthHandler(t *testing.T) {
+	h := HealthHandler(time.Now().Add(-5 * time.Second))
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/_relay/health", nil)
+	h.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rr.Code)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got := payload["status"]; got != "ok" {
+		t.Fatalf("status = %v, want ok", got)
+	}
+}
+
+func TestReadinessHandler(t *testing.T) {
+	h := ReadinessHandler()
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/_relay/ready", nil)
+	h.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rr.Code)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got := payload["status"]; got != "ready" {
+		t.Fatalf("status = %v, want ready", got)
+	}
+}
+
 func TestCacheAdminHandlerDeleteBaseKey(t *testing.T) {
 	store := cache.NewStoreWithOptions(cache.Options{DefaultTTL: time.Minute, MaxEntries: 10, MaxBytes: 1024 * 1024, MaxEntryBytes: 1024})
 	reg := metrics.New()

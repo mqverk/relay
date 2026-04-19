@@ -37,6 +37,7 @@ func Run(args []string) int {
 
 	logger := logging.New(cfg.LogLevel, cfg.Debug)
 	errHandler := errorhandler.New(logger, cfg.Debug)
+	startedAt := time.Now()
 
 	store := cache.ConfigureDefaultStore(cache.Options{
 		DefaultTTL:           cfg.TTL,
@@ -100,10 +101,14 @@ func Run(args []string) int {
 
 	adminPrefix := normalizePathPrefix(cfg.AdminPrefix)
 	metricsPath := normalizeRoute(cfg.MetricsPath)
+	healthPath := normalizeRoute(cfg.HealthPath)
+	readinessPath := normalizeRoute(cfg.ReadinessPath)
 	cacheAdminPath := path.Join(adminPrefix, "cache")
 
 	mux := http.NewServeMux()
 	mux.Handle(metricsPath, metricsReg.Handler())
+	mux.Handle(healthPath, HealthHandler(startedAt))
+	mux.Handle(readinessPath, ReadinessHandler())
 	mux.Handle(cacheAdminPath, CacheAdminHandler(store, metricsReg))
 	mux.Handle("/", h)
 

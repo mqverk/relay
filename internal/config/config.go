@@ -57,6 +57,8 @@ type Config struct {
 	LogLevel              string
 	Debug                 bool
 	MetricsPath           string
+	HealthPath            string
+	ReadinessPath         string
 	AdminPrefix           string
 	RateLimitRPS          float64
 	RateLimitBurst        int
@@ -89,6 +91,8 @@ Common options:
   --log-level <level>             debug|info|warn|error
   --debug                         include detailed debug output
   --metrics-path <path>           metrics endpoint path
+	--health-path <path>            health endpoint path
+	--readiness-path <path>         readiness endpoint path
   --admin-prefix <path>           admin endpoint prefix
 	--rate-limit-trust-proxy        trust X-Forwarded-For/X-Real-Ip for rate-limit client identity
 `
@@ -217,6 +221,8 @@ func defaultConfig() Config {
 		LogLevel:              "info",
 		Debug:                 false,
 		MetricsPath:           "/_relay/metrics",
+		HealthPath:            "/_relay/health",
+		ReadinessPath:         "/_relay/ready",
 		AdminPrefix:           "/_relay",
 		RateLimitRPS:          200,
 		RateLimitBurst:        400,
@@ -252,6 +258,8 @@ type fileConfig struct {
 	LogLevel              *string  `json:"log_level" yaml:"log_level"`
 	Debug                 *bool    `json:"debug" yaml:"debug"`
 	MetricsPath           *string  `json:"metrics_path" yaml:"metrics_path"`
+	HealthPath            *string  `json:"health_path" yaml:"health_path"`
+	ReadinessPath         *string  `json:"readiness_path" yaml:"readiness_path"`
 	AdminPrefix           *string  `json:"admin_prefix" yaml:"admin_prefix"`
 	RateLimitRPS          *float64 `json:"rate_limit_rps" yaml:"rate_limit_rps"`
 	RateLimitBurst        *int     `json:"rate_limit_burst" yaml:"rate_limit_burst"`
@@ -386,6 +394,12 @@ func applyFileConfig(cfg *Config, fc fileConfig) {
 	if fc.MetricsPath != nil {
 		cfg.MetricsPath = strings.TrimSpace(*fc.MetricsPath)
 	}
+	if fc.HealthPath != nil {
+		cfg.HealthPath = strings.TrimSpace(*fc.HealthPath)
+	}
+	if fc.ReadinessPath != nil {
+		cfg.ReadinessPath = strings.TrimSpace(*fc.ReadinessPath)
+	}
 	if fc.AdminPrefix != nil {
 		cfg.AdminPrefix = strings.TrimSpace(*fc.AdminPrefix)
 	}
@@ -426,6 +440,8 @@ func applyEnvConfig(cfg *Config) {
 	applyStringEnv("RELAY_LOG_LEVEL", &cfg.LogLevel)
 	applyBoolEnv("RELAY_DEBUG", &cfg.Debug)
 	applyStringEnv("RELAY_METRICS_PATH", &cfg.MetricsPath)
+	applyStringEnv("RELAY_HEALTH_PATH", &cfg.HealthPath)
+	applyStringEnv("RELAY_READINESS_PATH", &cfg.ReadinessPath)
 	applyStringEnv("RELAY_ADMIN_PREFIX", &cfg.AdminPrefix)
 	applyFloatEnv("RELAY_RATE_LIMIT_RPS", &cfg.RateLimitRPS)
 	applyIntEnv("RELAY_RATE_LIMIT_BURST", &cfg.RateLimitBurst)
@@ -468,6 +484,8 @@ func parseFlags(cfg *Config, args []string) error {
 	fs.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "log level: debug|info|warn|error")
 	fs.BoolVar(&cfg.Debug, "debug", cfg.Debug, "enable debug mode")
 	fs.StringVar(&cfg.MetricsPath, "metrics-path", cfg.MetricsPath, "metrics endpoint path")
+	fs.StringVar(&cfg.HealthPath, "health-path", cfg.HealthPath, "health endpoint path")
+	fs.StringVar(&cfg.ReadinessPath, "readiness-path", cfg.ReadinessPath, "readiness endpoint path")
 	fs.StringVar(&cfg.AdminPrefix, "admin-prefix", cfg.AdminPrefix, "admin endpoint prefix")
 	fs.Float64Var(&cfg.RateLimitRPS, "rate-limit-rps", cfg.RateLimitRPS, "rate limit requests per second per client")
 	fs.IntVar(&cfg.RateLimitBurst, "rate-limit-burst", cfg.RateLimitBurst, "rate limit burst per client")
