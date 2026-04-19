@@ -222,6 +222,7 @@ type fileConfig struct {
 	DialTimeout           *string  `json:"dial_timeout" yaml:"dial_timeout"`
 	IdleConnTimeout       *string  `json:"idle_conn_timeout" yaml:"idle_conn_timeout"`
 	ResponseHeaderTimeout *string  `json:"response_header_timeout" yaml:"response_header_timeout"`
+	MaxResponseHeaderBytes *int64   `json:"max_response_header_bytes" yaml:"max_response_header_bytes"`
 	MaxIdleConns          *int     `json:"max_idle_conns" yaml:"max_idle_conns"`
 	MaxIdleConnsPerHost   *int     `json:"max_idle_conns_per_host" yaml:"max_idle_conns_per_host"`
 	MaxConnsPerHost       *int     `json:"max_conns_per_host" yaml:"max_conns_per_host"`
@@ -332,6 +333,9 @@ func applyFileConfig(cfg *Config, fc fileConfig) {
 	applyDuration(&cfg.DialTimeout, fc.DialTimeout)
 	applyDuration(&cfg.IdleConnTimeout, fc.IdleConnTimeout)
 	applyDuration(&cfg.ResponseHeaderTimeout, fc.ResponseHeaderTimeout)
+	if fc.MaxResponseHeaderBytes != nil {
+		cfg.MaxResponseHeaderBytes = *fc.MaxResponseHeaderBytes
+	}
 	if fc.MaxIdleConns != nil {
 		cfg.MaxIdleConns = *fc.MaxIdleConns
 	}
