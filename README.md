@@ -15,13 +15,15 @@ It forwards requests to an origin, caches eligible responses with policy-aware b
 - Request coalescing for concurrent identical misses
 - Configurable retries with exponential backoff for idempotent methods
 - HTTPS origin support and HTTP/2-capable upstream transport
+- Configurable maximum upstream response body size guardrail
 - Structured JSON logging
 - Prometheus-compatible metrics endpoint
-- Admin HTTP endpoints for cache stats and cache clear
+- Admin HTTP endpoints for cache stats, targeted cache purge, and health/readiness checks
 - CLI config layering: flags > environment > config file
 - Middleware pipeline (request id, panic recovery, logging, metrics, rate limiting, hooks)
 - Rate limit response headers (`X-RateLimit-*`) and `Retry-After` on 429s
 - Optional trusted-proxy rate limiting via `X-Forwarded-For` / `X-Real-Ip`
+- Optional admin endpoint token authentication (`X-Relay-Admin-Token`)
 
 ## Requirements
 
@@ -93,7 +95,12 @@ Default endpoints:
 
 - `GET /_relay/cache` returns cache stats as JSON
 - `DELETE /_relay/cache` clears cache entries
+- `DELETE /_relay/cache?base_key=<METHOD%20/path%3Fquery>` clears variants for one base key
 - `GET /_relay/metrics` returns Prometheus metrics
+- `GET /_relay/health` returns process liveness and uptime
+- `GET /_relay/ready` returns readiness status
+
+If `admin_token` (or `RELAY_ADMIN_TOKEN` / `--admin-token`) is set, admin and operational endpoints require `X-Relay-Admin-Token`.
 
 Metrics include:
 
