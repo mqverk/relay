@@ -27,6 +27,7 @@
   "health_path": "/_relay/health",
   "readiness_path": "/_relay/ready",
   "admin_prefix": "/_relay",
+  "admin_token": "",
   "rate_limit_rps": 200,
   "rate_limit_burst": 400,
   "rate_limit_trust_proxy": false

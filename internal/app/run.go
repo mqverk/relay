@@ -104,12 +104,15 @@ func Run(args []string) int {
 	healthPath := normalizeRoute(cfg.HealthPath)
 	readinessPath := normalizeRoute(cfg.ReadinessPath)
 	cacheAdminPath := path.Join(adminPrefix, "cache")
+	protectAdmin := func(h http.Handler) http.Handler {
+		return ProtectWithAdminToken(cfg.AdminToken, h)
+	}
 
 	mux := http.NewServeMux()
-	mux.Handle(metricsPath, metricsReg.Handler())
-	mux.Handle(healthPath, HealthHandler(startedAt))
-	mux.Handle(readinessPath, ReadinessHandler())
-	mux.Handle(cacheAdminPath, CacheAdminHandler(store, metricsReg))
+	mux.Handle(metricsPath, protectAdmin(metricsReg.Handler()))
+	mux.Handle(healthPath, protectAdmin(HealthHandler(startedAt)))
+	mux.Handle(readinessPath, protectAdmin(ReadinessHandler()))
+	mux.Handle(cacheAdminPath, protectAdmin(CacheAdminHandler(store, metricsReg)))
 	mux.Handle("/", h)
 
 	limiter := middleware.NewRateLimiterWithOptions(middleware.RateLimiterOptions{

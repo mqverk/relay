@@ -287,3 +287,27 @@ func TestParseReadsHealthAndReadinessPathsFromEnv(t *testing.T) {
 		t.Fatalf("readiness path = %q, want /ready-env", cfg.ReadinessPath)
 	}
 }
+
+func TestParseReadsAdminTokenFromFlag(t *testing.T) {
+	cfg, err := Parse([]string{"--port", "3001", "--origin", "http://example.com", "--admin-token", "secret-token"})
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if cfg.AdminToken != "secret-token" {
+		t.Fatalf("admin token = %q, want secret-token", cfg.AdminToken)
+	}
+}
+
+func TestParseReadsAdminTokenFromEnv(t *testing.T) {
+	t.Setenv("RELAY_PORT", "3001")
+	t.Setenv("RELAY_ORIGIN", "http://env.example")
+	t.Setenv("RELAY_ADMIN_TOKEN", "env-secret")
+
+	cfg, err := Parse(nil)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if cfg.AdminToken != "env-secret" {
+		t.Fatalf("admin token = %q, want env-secret", cfg.AdminToken)
+	}
+}

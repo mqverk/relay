@@ -11,6 +11,49 @@ import (
 	"relay/internal/metrics"
 )
 
+func TestProtectWithAdminTokenAllowsMatchingToken(t *testing.T) {
+	h := ProtectWithAdminToken("secret", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/_relay/metrics", nil)
+	req.Header.Set(adminTokenHeader, "secret")
+	h.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204", rr.Code)
+	}
+}
+
+func TestProtectWithAdminTokenRejectsMissingToken(t *testing.T) {
+	h := ProtectWithAdminToken("secret", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/_relay/metrics", nil)
+	h.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rr.Code)
+	}
+}
+
+func TestProtectWithAdminTokenDisabledWhenEmpty(t *testing.T) {
+	h := ProtectWithAdminToken("", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/_relay/metrics", nil)
+	h.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204", rr.Code)
+	}
+}
+
 func TestHealthHandler(t *testing.T) {
 	h := HealthHandler(time.Now().Add(-5 * time.Second))
 	rr := httptest.NewRecorder()

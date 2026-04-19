@@ -60,6 +60,7 @@ type Config struct {
 	HealthPath            string
 	ReadinessPath         string
 	AdminPrefix           string
+	AdminToken            string
 	RateLimitRPS          float64
 	RateLimitBurst        int
 	RateLimitTrustProxy   bool
@@ -94,6 +95,7 @@ Common options:
 	--health-path <path>            health endpoint path
 	--readiness-path <path>         readiness endpoint path
   --admin-prefix <path>           admin endpoint prefix
+	--admin-token <token>           bearer token for admin endpoints
 	--rate-limit-trust-proxy        trust X-Forwarded-For/X-Real-Ip for rate-limit client identity
 `
 }
@@ -224,6 +226,7 @@ func defaultConfig() Config {
 		HealthPath:            "/_relay/health",
 		ReadinessPath:         "/_relay/ready",
 		AdminPrefix:           "/_relay",
+		AdminToken:            "",
 		RateLimitRPS:          200,
 		RateLimitBurst:        400,
 		RateLimitTrustProxy:   false,
@@ -261,6 +264,7 @@ type fileConfig struct {
 	HealthPath            *string  `json:"health_path" yaml:"health_path"`
 	ReadinessPath         *string  `json:"readiness_path" yaml:"readiness_path"`
 	AdminPrefix           *string  `json:"admin_prefix" yaml:"admin_prefix"`
+	AdminToken            *string  `json:"admin_token" yaml:"admin_token"`
 	RateLimitRPS          *float64 `json:"rate_limit_rps" yaml:"rate_limit_rps"`
 	RateLimitBurst        *int     `json:"rate_limit_burst" yaml:"rate_limit_burst"`
 	RateLimitTrustProxy   *bool    `json:"rate_limit_trust_proxy" yaml:"rate_limit_trust_proxy"`
@@ -403,6 +407,9 @@ func applyFileConfig(cfg *Config, fc fileConfig) {
 	if fc.AdminPrefix != nil {
 		cfg.AdminPrefix = strings.TrimSpace(*fc.AdminPrefix)
 	}
+	if fc.AdminToken != nil {
+		cfg.AdminToken = strings.TrimSpace(*fc.AdminToken)
+	}
 	if fc.RateLimitRPS != nil {
 		cfg.RateLimitRPS = *fc.RateLimitRPS
 	}
@@ -443,6 +450,7 @@ func applyEnvConfig(cfg *Config) {
 	applyStringEnv("RELAY_HEALTH_PATH", &cfg.HealthPath)
 	applyStringEnv("RELAY_READINESS_PATH", &cfg.ReadinessPath)
 	applyStringEnv("RELAY_ADMIN_PREFIX", &cfg.AdminPrefix)
+	applyStringEnv("RELAY_ADMIN_TOKEN", &cfg.AdminToken)
 	applyFloatEnv("RELAY_RATE_LIMIT_RPS", &cfg.RateLimitRPS)
 	applyIntEnv("RELAY_RATE_LIMIT_BURST", &cfg.RateLimitBurst)
 	applyBoolEnv("RELAY_RATE_LIMIT_TRUST_PROXY", &cfg.RateLimitTrustProxy)
@@ -487,6 +495,7 @@ func parseFlags(cfg *Config, args []string) error {
 	fs.StringVar(&cfg.HealthPath, "health-path", cfg.HealthPath, "health endpoint path")
 	fs.StringVar(&cfg.ReadinessPath, "readiness-path", cfg.ReadinessPath, "readiness endpoint path")
 	fs.StringVar(&cfg.AdminPrefix, "admin-prefix", cfg.AdminPrefix, "admin endpoint prefix")
+	fs.StringVar(&cfg.AdminToken, "admin-token", cfg.AdminToken, "admin endpoint authentication token")
 	fs.Float64Var(&cfg.RateLimitRPS, "rate-limit-rps", cfg.RateLimitRPS, "rate limit requests per second per client")
 	fs.IntVar(&cfg.RateLimitBurst, "rate-limit-burst", cfg.RateLimitBurst, "rate limit burst per client")
 	fs.BoolVar(&cfg.RateLimitTrustProxy, "rate-limit-trust-proxy", cfg.RateLimitTrustProxy, "trust X-Forwarded-For/X-Real-Ip for rate limiting")

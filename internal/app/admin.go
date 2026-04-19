@@ -10,6 +10,30 @@ import (
 	"relay/internal/metrics"
 )
 
+const adminTokenHeader = "X-Relay-Admin-Token"
+
+// ProtectWithAdminToken wraps an admin handler with optional token authentication.
+func ProtectWithAdminToken(token string, next http.Handler) http.Handler {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return next
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.TrimSpace(r.Header.Get(adminTokenHeader)) != token {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"error":       "Unauthorized",
+				"status_code": http.StatusUnauthorized,
+				"code":        "admin_unauthorized",
+			})
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // HealthHandler builds a health endpoint handler with uptime details.
 func HealthHandler(startedAt time.Time) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
