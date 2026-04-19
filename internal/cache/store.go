@@ -6,6 +6,15 @@ import (
 	"time"
 )
 
+// Stats captures high-level cache statistics.
+type Stats struct {
+	Entries   int
+	SizeBytes int64
+	Hits      int64
+	Misses    int64
+	HitRatio  float64
+}
+
 // Entry is a cached HTTP response snapshot.
 type Entry struct {
 	StatusCode int
@@ -20,6 +29,9 @@ type Store struct {
 	mu      sync.RWMutex
 	entries map[string]Entry
 	ttl     time.Duration
+	hits    int64
+	misses  int64
+	bytes   int64
 }
 
 // NewStore creates a new cache store.
@@ -36,15 +48,24 @@ func (s *Store) Get(key string) (Entry, bool) {
 	entry, ok := s.entries[key]
 	s.mu.RUnlock()
 	if !ok {
+		s.mu.Lock()
+		s.misses++
+		s.mu.Unlock()
 		return Entry{}, false
 	}
 
 	if !entry.ExpiresAt.IsZero() && time.Now().After(entry.ExpiresAt) {
 		s.mu.Lock()
+		s.misses++
+		s.bytes -= int64(len(entry.Body))
 		delete(s.entries, key)
 		s.mu.Unlock()
 		return Entry{}, false
 	}
+
+	s.mu.Lock()
+	s.hits++
+	s.mu.Unlock()
 
 	return cloneEntry(entry), true
 }
@@ -57,7 +78,11 @@ func (s *Store) Set(key string, entry Entry) {
 	}
 
 	s.mu.Lock()
+	if old, ok := s.entries[key]; ok {
+		s.bytes -= int64(len(old.Body))
+	}
 	s.entries[key] = cloneEntry(entry)
+	s.bytes += int64(len(entry.Body))
 	s.mu.Unlock()
 }
 
@@ -65,6 +90,7 @@ func (s *Store) Set(key string, entry Entry) {
 func (s *Store) Clear() {
 	s.mu.Lock()
 	s.entries = make(map[string]Entry)
+	s.bytes = 0
 	s.mu.Unlock()
 }
 
@@ -74,6 +100,26 @@ func (s *Store) Len() int {
 	n := len(s.entries)
 	s.mu.RUnlock()
 	return n
+}
+
+// Stats returns a snapshot of cache statistics.
+func (s *Store) Stats() Stats {
+	s.mu.RLock()
+	hits := s.hits
+	misses := s.misses
+	ratio := 0.0
+	if hits+misses > 0 {
+		ratio = float64(hits) / float64(hits+misses)
+	}
+	stats := Stats{
+		Entries:   len(s.entries),
+		SizeBytes: s.bytes,
+		Hits:      hits,
+		Misses:    misses,
+		HitRatio:  ratio,
+	}
+	s.mu.RUnlock()
+	return stats
 }
 
 func cloneEntry(entry Entry) Entry {

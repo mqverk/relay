@@ -10,20 +10,20 @@ import (
 	"syscall"
 
 	"relay/internal/cache"
-	"relay/internal/cli"
+	"relay/internal/config"
 	"relay/internal/proxy"
 	"relay/internal/server"
 )
 
 // Run executes the relay application and returns a process exit code.
 func Run(args []string) int {
-	cfg, err := cli.Parse(args)
+	cfg, err := config.Parse(args)
 	if err != nil {
-		if errors.Is(err, cli.ErrHelpRequested) {
-			fmt.Print(cli.Usage())
+		if errors.Is(err, config.ErrHelpRequested) {
+			fmt.Print(config.Usage())
 			return 0
 		}
-		fmt.Fprintf(os.Stderr, "error: %v\n\n%s", err, cli.Usage())
+		fmt.Fprintf(os.Stderr, "error: %v\n\n%s", err, config.Usage())
 		return 2
 	}
 
@@ -32,6 +32,12 @@ func Run(args []string) int {
 	if cfg.ClearCache {
 		cache.ClearDefault()
 		log.Println("cache cleared")
+		return 0
+	}
+
+	if cfg.CacheStats {
+		stats := store.Stats()
+		fmt.Printf("entries=%d bytes=%d hits=%d misses=%d hit_ratio=%.4f\n", stats.Entries, stats.SizeBytes, stats.Hits, stats.Misses, stats.HitRatio)
 		return 0
 	}
 
