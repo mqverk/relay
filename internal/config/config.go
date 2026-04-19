@@ -80,6 +80,7 @@ Common options:
   --ttl <duration>                default cache TTL (e.g. 60s)
   --cache-max-entries <n>         max in-memory entries for LRU
   --cache-max-entry-bytes <n>     max response body bytes eligible for cache
+	--cache-max-bytes <n>           max total in-memory cache bytes
 	--max-response-header-bytes <n> max upstream response header bytes
   --request-timeout <duration>    upstream request timeout
   --log-level <level>             debug|info|warn|error
