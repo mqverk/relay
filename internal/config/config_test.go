@@ -142,3 +142,10 @@ func TestParseReadsMaxResponseHeaderBytesFromFlag(t *testing.T) {
 		t.Fatalf("max response header bytes = %d, want 2048", cfg.MaxResponseHeaderBytes)
 	}
 }
+
+func TestParseRejectsNonPositiveMaxResponseHeaderBytes(t *testing.T) {
+	_, err := Parse([]string{"--port", "3001", "--origin", "http://example.com", "--max-response-header-bytes", "0"})
+	if err == nil {
+		t.Fatal("expected parse error for non-positive max response header bytes")
+	}
+}
