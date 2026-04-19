@@ -247,15 +247,9 @@ type fileConfig struct {
 }
 
 func loadJSONConfig(path string) (fileConfig, error) {
-	f, err := os.Open(path)
+	bytes, err := readConfigFile(path)
 	if err != nil {
-		return fileConfig{}, fmt.Errorf("open config file: %w", err)
-	}
-	defer f.Close()
-
-	bytes, err := io.ReadAll(f)
-	if err != nil {
-		return fileConfig{}, fmt.Errorf("read config file: %w", err)
+		return fileConfig{}, err
 	}
 
 	var fc fileConfig
@@ -266,15 +260,9 @@ func loadJSONConfig(path string) (fileConfig, error) {
 }
 
 func loadYAMLConfig(path string) (fileConfig, error) {
-	f, err := os.Open(path)
+	bytes, err := readConfigFile(path)
 	if err != nil {
-		return fileConfig{}, fmt.Errorf("open config file: %w", err)
-	}
-	defer f.Close()
-
-	bytes, err := io.ReadAll(f)
-	if err != nil {
-		return fileConfig{}, fmt.Errorf("read config file: %w", err)
+		return fileConfig{}, err
 	}
 
 	var fc fileConfig
@@ -282,6 +270,20 @@ func loadYAMLConfig(path string) (fileConfig, error) {
 		return fileConfig{}, fmt.Errorf("parse config file YAML: %w", err)
 	}
 	return fc, nil
+}
+
+func readConfigFile(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open config file: %w", err)
+	}
+	defer f.Close()
+
+	bytes, err := io.ReadAll(f)
+	if err != nil {
+		return nil, fmt.Errorf("read config file: %w", err)
+	}
+	return bytes, nil
 }
 
 func detectConfigFormat(path string) (configFormat, error) {
