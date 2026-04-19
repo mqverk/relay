@@ -387,6 +387,7 @@ func applyEnvConfig(cfg *Config) {
 	applyDurationEnv("RELAY_STALE_IF_ERROR", &cfg.StaleIfError)
 	applyIntEnv("RELAY_CACHE_MAX_ENTRIES", &cfg.CacheMaxEntries)
 	applyIntEnv("RELAY_CACHE_MAX_ENTRY_BYTES", &cfg.CacheMaxEntryBytes)
+	applyInt64Env("RELAY_CACHE_MAX_BYTES", &cfg.CacheMaxBytes)
 	applyCSVEnv("RELAY_CACHE_METHODS", &cfg.CacheMethods)
 	applyCSVEnv("RELAY_CACHE_BYPASS_PATHS", &cfg.CacheBypassPaths)
 	applyCSVEnv("RELAY_CACHE_BYPASS_HEADERS", &cfg.CacheBypassHeaders)
