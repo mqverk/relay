@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -228,6 +229,107 @@ func TestHandlerReturns304FromCacheOnIfModifiedSince(t *testing.T) {
 	}
 }
 
+func TestHandlerCoalescesConcurrentIdenticalRequests(t *testing.T) {
+	var calls int32
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		time.Sleep(75 * time.Millisecond)
+		w.Header().Set("Cache-Control", "max-age=60")
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer origin.Close()
+
+	h := mustNewAdvancedHandler(t, origin.URL)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+
+	var wg sync.WaitGroup
+	errs := make(chan error, 2)
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			res, body, err := doGetWithHeaders(srv.URL+"/products", nil)
+			if err != nil {
+				errs <- err
+				return
+			}
+			if res.StatusCode != http.StatusOK || body != "ok" {
+				errs <- errUnexpectedResponse
+				return
+			}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent request failed: %v", err)
+		}
+	}
+
+	if got := atomic.LoadInt32(&calls); got != 1 {
+		t.Fatalf("origin calls = %d, want 1", got)
+	}
+}
+
+func TestHandlerSeparatesCoalescingForDifferentHeaders(t *testing.T) {
+	var calls int32
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		time.Sleep(75 * time.Millisecond)
+		w.Header().Set("Cache-Control", "max-age=60")
+		w.Header().Set("Vary", "Accept-Language")
+		_, _ = w.Write([]byte(r.Header.Get("Accept-Language")))
+	}))
+	defer origin.Close()
+
+	h := mustNewAdvancedHandler(t, origin.URL)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+
+	var wg sync.WaitGroup
+	bodies := make(chan string, 2)
+	errs := make(chan error, 2)
+	langs := []string{"en-US", "fr-FR"}
+	for _, lang := range langs {
+		lang := lang
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			res, body, err := doGetWithHeaders(srv.URL+"/products", map[string]string{"Accept-Language": lang})
+			if err != nil {
+				errs <- err
+				return
+			}
+			if res.StatusCode != http.StatusOK {
+				errs <- errUnexpectedResponse
+				return
+			}
+			bodies <- body
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent request failed: %v", err)
+		}
+	}
+
+	close(bodies)
+	seen := map[string]bool{}
+	for body := range bodies {
+		seen[body] = true
+	}
+	if !seen["en-US"] || !seen["fr-FR"] {
+		t.Fatalf("expected both language variants, got %#v", seen)
+	}
+	if got := atomic.LoadInt32(&calls); got != 2 {
+		t.Fatalf("origin calls = %d, want 2", got)
+	}
+}
+
 func mustNewAdvancedHandler(t *testing.T, originRaw string) *Handler {
 	t.Helper()
 	originURL, err := url.Parse(originRaw)
@@ -273,4 +375,26 @@ func mustGetWithHeaders(t *testing.T, target string, headers map[string]string) 
 		t.Fatalf("read response body: %v", err)
 	}
 	return res, string(body)
+}
+
+var errUnexpectedResponse = &url.Error{Op: "GET", URL: "unexpected", Err: io.ErrUnexpectedEOF}
+
+func doGetWithHeaders(target string, headers map[string]string) (*http.Response, string, error) {
+	req, err := http.NewRequest(http.MethodGet, target, nil)
+	if err != nil {
+		return nil, "", err
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, "", err
+	}
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, "", err
+	}
+	return res, string(body), nil
 }
