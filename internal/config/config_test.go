@@ -107,3 +107,28 @@ func TestParseRejectsUnsupportedConfigExtension(t *testing.T) {
 		t.Fatal("expected parse error for unsupported extension")
 	}
 }
+
+func TestParseUsesEnvConfigPathWhenFlagMissing(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "relay.yml")
+	configYAML := `
+port: 4555
+origin: http://env-config.example
+`
+	if err := os.WriteFile(configPath, []byte(configYAML), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	t.Setenv("RELAY_CONFIG", configPath)
+	cfg, err := Parse(nil)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+
+	if cfg.Port != 4555 {
+		t.Fatalf("port = %d, want 4555", cfg.Port)
+	}
+	if cfg.Origin == nil || cfg.Origin.String() != "http://env-config.example" {
+		t.Fatalf("origin = %v, want http://env-config.example", cfg.Origin)
+	}
+}
