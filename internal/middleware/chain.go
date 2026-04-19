@@ -16,10 +16,25 @@ func Chain(final http.Handler, middlewares ...Middleware) http.Handler {
 
 type responseRecorder struct {
 	http.ResponseWriter
-	status int
+	status      int
+	bytes       int64
+	wroteHeader bool
 }
 
 func (r *responseRecorder) WriteHeader(code int) {
+	if r.wroteHeader {
+		return
+	}
 	r.status = code
+	r.wroteHeader = true
 	r.ResponseWriter.WriteHeader(code)
+}
+
+func (r *responseRecorder) Write(p []byte) (int, error) {
+	if !r.wroteHeader {
+		r.WriteHeader(http.StatusOK)
+	}
+	n, err := r.ResponseWriter.Write(p)
+	r.bytes += int64(n)
+	return n, err
 }
