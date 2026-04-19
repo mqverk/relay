@@ -19,7 +19,7 @@ It forwards requests to an origin, caches eligible responses with policy-aware b
 - Prometheus-compatible metrics endpoint
 - Admin HTTP endpoints for cache stats and cache clear
 - CLI config layering: flags > environment > config file
-- Middleware pipeline (logging, metrics, rate limiting, hooks)
+- Middleware pipeline (request id, panic recovery, logging, metrics, rate limiting, hooks)
 
 ## Requirements
 
@@ -121,7 +121,7 @@ Metrics include:
 - `internal/config` layered configuration management
 - `internal/cache` LRU cache and policy handling
 - `internal/proxy` forwarding, caching, retries, revalidation, coalescing
-- `internal/middleware` logging/metrics/rate-limit/hooks pipeline
+- `internal/middleware` request-id/recovery/logging/metrics/rate-limit/hooks pipeline
 - `internal/metrics` Prometheus metrics registry
 - `internal/logging` structured JSON logging
 - `internal/errors` error taxonomy
