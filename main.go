@@ -1,11 +1,16 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
+	"relay/internal/cache"
 	"relay/internal/cli"
+	"relay/internal/proxy"
+	"relay/internal/server"
 )
 
 func main() {
@@ -14,10 +19,23 @@ func main() {
 		log.Fatalf("invalid arguments: %v", err)
 	}
 
+	store := cache.NewStore(0)
+
 	if cfg.ClearCache {
-		fmt.Println("cache cleared")
+		store.Clear()
+		log.Println("cache cleared")
 		return
 	}
 
-	log.Printf("relay configured: port=%d origin=%s", cfg.Port, cfg.Origin.String())
+	h, err := proxy.NewHandler(cfg.Origin, store, log.Default())
+	if err != nil {
+		log.Fatalf("create proxy handler: %v", err)
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := server.Run(ctx, cfg.Port, h, log.Default()); err != nil {
+		log.Fatalf("server failed: %v", err)
+	}
 }
