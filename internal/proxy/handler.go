@@ -571,10 +571,22 @@ func mergeHeaders(base, delta http.Header) http.Header {
 }
 
 func isCacheableStatus(status int) bool {
-	if status >= 500 {
+	switch status {
+	case http.StatusOK,
+		http.StatusNonAuthoritativeInfo,
+		http.StatusNoContent,
+		http.StatusPartialContent,
+		http.StatusMultipleChoices,
+		http.StatusMovedPermanently,
+		http.StatusNotFound,
+		http.StatusMethodNotAllowed,
+		http.StatusGone,
+		http.StatusRequestURITooLong,
+		http.StatusNotImplemented:
+		return true
+	default:
 		return false
 	}
-	return status >= 200
 }
 
 type coalescer struct {
