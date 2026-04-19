@@ -533,6 +533,9 @@ func isConditionalCacheRequest(r *http.Request, entry cache.Entry) bool {
 	if r == nil {
 		return false
 	}
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		return false
+	}
 	ifNoneMatch := strings.TrimSpace(r.Header.Get("If-None-Match"))
 	if ifNoneMatch != "" && entry.ETag != "" {
 		for _, token := range strings.Split(ifNoneMatch, ",") {
