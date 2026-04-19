@@ -48,6 +48,10 @@ func PolicyFromResponseHeaders(header http.Header, now time.Time, defaults Polic
 			ttl = parsed.Sub(now)
 		}
 	}
+
+	if age, ok := parseAge(header.Get("Age")); ok {
+		ttl -= age
+	}
 	if ttl < 0 {
 		ttl = 0
 	}
@@ -75,6 +79,11 @@ func PolicyFromResponseHeaders(header http.Header, now time.Time, defaults Polic
 
 	if hasDirective(cacheControl, "no-cache") {
 		policy.ExpiresAt = now
+		policy.StaleWhileRevalidateUntil = time.Time{}
+		policy.StaleIfErrorUntil = time.Time{}
+	}
+
+	if hasDirective(cacheControl, "must-revalidate") || hasDirective(cacheControl, "proxy-revalidate") {
 		policy.StaleWhileRevalidateUntil = time.Time{}
 		policy.StaleIfErrorUntil = time.Time{}
 	}
@@ -115,6 +124,18 @@ func getDirectiveInt(directives map[string]string, name string) (int, bool) {
 		return 0, false
 	}
 	return n, true
+}
+
+func parseAge(value string) (time.Duration, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0, false
+	}
+	n, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || n < 0 {
+		return 0, false
+	}
+	return time.Duration(n) * time.Second, true
 }
 
 func splitCSV(values []string) []string {

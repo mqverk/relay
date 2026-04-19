@@ -80,3 +80,43 @@ func TestPolicyFromResponseHeadersUsesExpiresHeader(t *testing.T) {
 		t.Fatalf("expires ttl = %s, want approximately 2m", got)
 	}
 }
+
+func TestPolicyFromResponseHeadersSubtractsAgeFromTTL(t *testing.T) {
+	now := time.Now().UTC()
+	header := http.Header{}
+	header.Set("Cache-Control", "max-age=120")
+	header.Set("Age", "30")
+
+	policy := PolicyFromResponseHeaders(header, now, PolicyDefaults{TTL: 10 * time.Second})
+	if got := policy.ExpiresAt.Sub(now); got < 89*time.Second || got > 91*time.Second {
+		t.Fatalf("ttl with age = %s, want approximately 90s", got)
+	}
+}
+
+func TestPolicyFromResponseHeadersMustRevalidateDisablesStaleWindows(t *testing.T) {
+	now := time.Now()
+	header := http.Header{}
+	header.Set("Cache-Control", "max-age=60, stale-while-revalidate=30, stale-if-error=120, must-revalidate")
+
+	policy := PolicyFromResponseHeaders(header, now, PolicyDefaults{})
+	if !policy.StaleWhileRevalidateUntil.IsZero() {
+		t.Fatal("must-revalidate should disable stale-while-revalidate")
+	}
+	if !policy.StaleIfErrorUntil.IsZero() {
+		t.Fatal("must-revalidate should disable stale-if-error")
+	}
+}
+
+func TestPolicyFromResponseHeadersProxyRevalidateDisablesStaleWindows(t *testing.T) {
+	now := time.Now()
+	header := http.Header{}
+	header.Set("Cache-Control", "max-age=60, stale-while-revalidate=30, stale-if-error=120, proxy-revalidate")
+
+	policy := PolicyFromResponseHeaders(header, now, PolicyDefaults{})
+	if !policy.StaleWhileRevalidateUntil.IsZero() {
+		t.Fatal("proxy-revalidate should disable stale-while-revalidate")
+	}
+	if !policy.StaleIfErrorUntil.IsZero() {
+		t.Fatal("proxy-revalidate should disable stale-if-error")
+	}
+}
