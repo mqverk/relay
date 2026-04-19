@@ -1,9 +1,7 @@
 package errorhandler
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"relay/internal/erroradvisor"
@@ -27,51 +25,46 @@ func (h *Handler) StatusCode(err error) int {
 	if err == nil {
 		return http.StatusOK
 	}
-
-	if appErr, ok := relayerrors.AsAppError(err); ok {
-		switch appErr.Category {
-		case relayerrors.CategoryConfig:
-			return http.StatusBadRequest
-		case relayerrors.CategoryRate:
-			return http.StatusTooManyRequests
-		case relayerrors.CategoryTimeout:
-			return http.StatusGatewayTimeout
-		case relayerrors.CategoryNetwork:
-			return http.StatusBadGateway
-		case relayerrors.CategoryCache:
-			return http.StatusServiceUnavailable
-		default:
-			return http.StatusInternalServerError
-		}
-	}
-
-	if errors.Is(err, context.DeadlineExceeded) {
-		return http.StatusGatewayTimeout
-	}
-
-	return http.StatusBadGateway
+	return relayerrors.Normalize(err).HTTPStatus()
 }
 
 // WriteHTTP writes a consistent JSON error response.
 func (h *Handler) WriteHTTP(w http.ResponseWriter, err error) {
-	status := h.StatusCode(err)
-	suggestion := erroradvisor.Suggest(err)
+	normalized := relayerrors.Normalize(err)
+	status := normalized.HTTPStatus()
+	suggestion := erroradvisor.Suggest(normalized)
 
 	payload := map[string]any{
 		"error":       http.StatusText(status),
 		"status_code": status,
-	}
-	if appErr, ok := relayerrors.AsAppError(err); ok {
-		payload["code"] = appErr.Code
-		payload["message"] = appErr.Message
+		"code":        normalized.Code,
+		"message":     normalized.Message,
 	}
 	if h.debug {
-		payload["suggestion"] = suggestion
-		payload["details"] = err.Error()
+		payload["category"] = normalized.Category
+		if len(normalized.Meta) > 0 {
+			payload["meta"] = normalized.Meta
+		}
+		if suggestion != "" {
+			payload["suggestion"] = suggestion
+		}
+		payload["details"] = normalized.Error()
 	}
 
 	if h.logger != nil {
-		h.logger.Error("request failed", map[string]any{"status": status, "error": err.Error(), "suggestion": suggestion})
+		fields := map[string]any{
+			"status":         status,
+			"error_code":     normalized.Code,
+			"error_category": normalized.Category,
+			"error_message":  normalized.Message,
+		}
+		if suggestion != "" {
+			fields["suggestion"] = suggestion
+		}
+		if h.debug {
+			fields["details"] = normalized.Error()
+		}
+		h.logger.Error("request failed", fields)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
