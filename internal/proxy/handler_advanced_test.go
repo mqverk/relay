@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -379,6 +380,48 @@ func TestHandlerBackgroundRevalidationRefreshesStaleEntry(t *testing.T) {
 	}
 	if body3 != "fresh-body" {
 		t.Fatalf("third response body = %q, want fresh-body", body3)
+	}
+}
+
+func TestHandlerRejectsOversizedOriginResponse(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "max-age=60")
+		_, _ = w.Write([]byte("12345"))
+	}))
+	defer origin.Close()
+
+	originURL, _ := url.Parse(origin.URL)
+	store := cache.NewStoreWithOptions(cache.Options{DefaultTTL: time.Minute, MaxEntries: 100, MaxBytes: 1024 * 1024, MaxEntryBytes: 64 * 1024})
+	logger := logging.NewWithWriter(io.Discard, "debug", true)
+	h, err := NewHandlerWithOptions(HandlerOptions{
+		Origin:               originURL,
+		Cache:                store,
+		Logger:               logger,
+		ErrorHandler:         errorhandler.New(logger, true),
+		CacheMethods:         []string{http.MethodGet},
+		MaxResponseBodyBytes: 4,
+		PolicyDefaults: cache.PolicyDefaults{
+			TTL:                  time.Minute,
+			StaleWhileRevalidate: time.Second,
+			StaleIfError:         time.Minute,
+		},
+	})
+	if err != nil {
+		t.Fatalf("create handler: %v", err)
+	}
+
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+
+	res, body := mustGet(t, srv.URL+"/products")
+	if res.StatusCode != http.StatusBadGateway {
+		t.Fatalf("status = %d, want 502", res.StatusCode)
+	}
+	if got := res.Header.Get("X-Cache"); got != cacheMiss {
+		t.Fatalf("X-Cache = %q, want MISS", got)
+	}
+	if !strings.Contains(body, "origin_response_too_large") {
+		t.Fatalf("expected error code in response body, got %q", body)
 	}
 }
 

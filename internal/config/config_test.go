@@ -178,6 +178,30 @@ func TestParseReadsMaxResponseHeaderBytesFromFlag(t *testing.T) {
 	}
 }
 
+func TestParseReadsMaxResponseBodyBytesFromFlag(t *testing.T) {
+	cfg, err := Parse([]string{"--port", "3001", "--origin", "http://example.com", "--max-response-body-bytes", "4096"})
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if cfg.MaxResponseBodyBytes != 4096 {
+		t.Fatalf("max response body bytes = %d, want 4096", cfg.MaxResponseBodyBytes)
+	}
+}
+
+func TestParseReadsMaxResponseBodyBytesFromEnv(t *testing.T) {
+	t.Setenv("RELAY_PORT", "3001")
+	t.Setenv("RELAY_ORIGIN", "http://env.example")
+	t.Setenv("RELAY_MAX_RESPONSE_BODY_BYTES", "8192")
+
+	cfg, err := Parse(nil)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if cfg.MaxResponseBodyBytes != 8192 {
+		t.Fatalf("max response body bytes = %d, want 8192", cfg.MaxResponseBodyBytes)
+	}
+}
+
 func TestParseReadsCacheMaxBytesFromFlag(t *testing.T) {
 	cfg, err := Parse([]string{"--port", "3001", "--origin", "http://example.com", "--cache-max-bytes", "4096"})
 	if err != nil {
@@ -192,6 +216,13 @@ func TestParseRejectsNonPositiveMaxResponseHeaderBytes(t *testing.T) {
 	_, err := Parse([]string{"--port", "3001", "--origin", "http://example.com", "--max-response-header-bytes", "0"})
 	if err == nil {
 		t.Fatal("expected parse error for non-positive max response header bytes")
+	}
+}
+
+func TestParseRejectsNonPositiveMaxResponseBodyBytes(t *testing.T) {
+	_, err := Parse([]string{"--port", "3001", "--origin", "http://example.com", "--max-response-body-bytes", "0"})
+	if err == nil {
+		t.Fatal("expected parse error for non-positive max response body bytes")
 	}
 }
 

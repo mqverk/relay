@@ -78,6 +78,7 @@ func Run(args []string) int {
 		IdleConnTimeout:       cfg.IdleConnTimeout,
 		ResponseHeaderTimeout: cfg.ResponseHeaderTimeout,
 		MaxResponseHeaderBytes: cfg.MaxResponseHeaderBytes,
+		MaxResponseBodyBytes:   cfg.MaxResponseBodyBytes,
 		MaxIdleConns:          cfg.MaxIdleConns,
 		MaxIdleConnsPerHost:   cfg.MaxIdleConnsPerHost,
 		MaxConnsPerHost:       cfg.MaxConnsPerHost,

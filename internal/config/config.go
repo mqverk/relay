@@ -48,6 +48,7 @@ type Config struct {
 	IdleConnTimeout       time.Duration
 	ResponseHeaderTimeout time.Duration
 	MaxResponseHeaderBytes int64
+	MaxResponseBodyBytes   int64
 	MaxIdleConns          int
 	MaxIdleConnsPerHost   int
 	MaxConnsPerHost       int
@@ -83,6 +84,7 @@ Common options:
   --cache-max-entry-bytes <n>     max response body bytes eligible for cache
 	--cache-max-bytes <n>           max total in-memory cache bytes
 	--max-response-header-bytes <n> max upstream response header bytes
+	--max-response-body-bytes <n>   max upstream response body bytes
   --request-timeout <duration>    upstream request timeout
   --log-level <level>             debug|info|warn|error
   --debug                         include detailed debug output
@@ -159,6 +161,9 @@ func Parse(args []string) (Config, error) {
 	if cfg.MaxResponseHeaderBytes <= 0 {
 		return Config{}, errors.New("--max-response-header-bytes must be greater than 0")
 	}
+	if cfg.MaxResponseBodyBytes <= 0 {
+		return Config{}, errors.New("--max-response-body-bytes must be greater than 0")
+	}
 	if cfg.RateLimitRPS <= 0 {
 		return Config{}, errors.New("--rate-limit-rps must be greater than 0")
 	}
@@ -203,6 +208,7 @@ func defaultConfig() Config {
 		IdleConnTimeout:       90 * time.Second,
 		ResponseHeaderTimeout: 15 * time.Second,
 		MaxResponseHeaderBytes: 1 << 20,
+		MaxResponseBodyBytes:   8 << 20,
 		MaxIdleConns:          512,
 		MaxIdleConnsPerHost:   128,
 		MaxConnsPerHost:       256,
@@ -237,6 +243,7 @@ type fileConfig struct {
 	IdleConnTimeout       *string  `json:"idle_conn_timeout" yaml:"idle_conn_timeout"`
 	ResponseHeaderTimeout *string  `json:"response_header_timeout" yaml:"response_header_timeout"`
 	MaxResponseHeaderBytes *int64   `json:"max_response_header_bytes" yaml:"max_response_header_bytes"`
+	MaxResponseBodyBytes   *int64   `json:"max_response_body_bytes" yaml:"max_response_body_bytes"`
 	MaxIdleConns          *int     `json:"max_idle_conns" yaml:"max_idle_conns"`
 	MaxIdleConnsPerHost   *int     `json:"max_idle_conns_per_host" yaml:"max_idle_conns_per_host"`
 	MaxConnsPerHost       *int     `json:"max_conns_per_host" yaml:"max_conns_per_host"`
@@ -354,6 +361,9 @@ func applyFileConfig(cfg *Config, fc fileConfig) {
 	if fc.MaxResponseHeaderBytes != nil {
 		cfg.MaxResponseHeaderBytes = *fc.MaxResponseHeaderBytes
 	}
+	if fc.MaxResponseBodyBytes != nil {
+		cfg.MaxResponseBodyBytes = *fc.MaxResponseBodyBytes
+	}
 	if fc.MaxIdleConns != nil {
 		cfg.MaxIdleConns = *fc.MaxIdleConns
 	}
@@ -407,6 +417,7 @@ func applyEnvConfig(cfg *Config) {
 	applyDurationEnv("RELAY_IDLE_CONN_TIMEOUT", &cfg.IdleConnTimeout)
 	applyDurationEnv("RELAY_RESPONSE_HEADER_TIMEOUT", &cfg.ResponseHeaderTimeout)
 	applyInt64Env("RELAY_MAX_RESPONSE_HEADER_BYTES", &cfg.MaxResponseHeaderBytes)
+	applyInt64Env("RELAY_MAX_RESPONSE_BODY_BYTES", &cfg.MaxResponseBodyBytes)
 	applyIntEnv("RELAY_MAX_IDLE_CONNS", &cfg.MaxIdleConns)
 	applyIntEnv("RELAY_MAX_IDLE_CONNS_PER_HOST", &cfg.MaxIdleConnsPerHost)
 	applyIntEnv("RELAY_MAX_CONNS_PER_HOST", &cfg.MaxConnsPerHost)
@@ -448,6 +459,7 @@ func parseFlags(cfg *Config, args []string) error {
 	fs.DurationVar(&cfg.IdleConnTimeout, "idle-conn-timeout", cfg.IdleConnTimeout, "upstream idle connection timeout")
 	fs.DurationVar(&cfg.ResponseHeaderTimeout, "response-header-timeout", cfg.ResponseHeaderTimeout, "upstream response header timeout")
 	fs.Int64Var(&cfg.MaxResponseHeaderBytes, "max-response-header-bytes", cfg.MaxResponseHeaderBytes, "max upstream response header bytes")
+	fs.Int64Var(&cfg.MaxResponseBodyBytes, "max-response-body-bytes", cfg.MaxResponseBodyBytes, "max upstream response body bytes")
 	fs.IntVar(&cfg.MaxIdleConns, "max-idle-conns", cfg.MaxIdleConns, "max idle conns")
 	fs.IntVar(&cfg.MaxIdleConnsPerHost, "max-idle-conns-per-host", cfg.MaxIdleConnsPerHost, "max idle conns per host")
 	fs.IntVar(&cfg.MaxConnsPerHost, "max-conns-per-host", cfg.MaxConnsPerHost, "max conns per host")

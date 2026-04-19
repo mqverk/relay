@@ -50,6 +50,7 @@ type HandlerOptions struct {
 	IdleConnTimeout       time.Duration
 	ResponseHeaderTimeout time.Duration
 	MaxResponseHeaderBytes int64
+	MaxResponseBodyBytes   int64
 	MaxIdleConns          int
 	MaxIdleConnsPerHost   int
 	MaxConnsPerHost       int
@@ -68,6 +69,7 @@ type Handler struct {
 	client       *http.Client
 	logger       *logging.Logger
 	errorHandler *errorhandler.Handler
+	maxResponseBodyBytes int64
 	retryCount   int
 	retryBackoff time.Duration
 
@@ -93,6 +95,7 @@ func NewHandler(origin *url.URL, store *cache.Store, stdLogger *log.Logger) (*Ha
 		IdleConnTimeout:       90 * time.Second,
 		ResponseHeaderTimeout: 15 * time.Second,
 		MaxResponseHeaderBytes: 1 << 20,
+		MaxResponseBodyBytes:   8 << 20,
 		MaxIdleConns:          512,
 		MaxIdleConnsPerHost:   128,
 		MaxConnsPerHost:       256,
@@ -137,6 +140,9 @@ func NewHandlerWithOptions(opts HandlerOptions) (*Handler, error) {
 	if opts.MaxResponseHeaderBytes <= 0 {
 		opts.MaxResponseHeaderBytes = 1 << 20
 	}
+	if opts.MaxResponseBodyBytes <= 0 {
+		opts.MaxResponseBodyBytes = 8 << 20
+	}
 	if opts.MaxIdleConns <= 0 {
 		opts.MaxIdleConns = 512
 	}
@@ -176,6 +182,7 @@ func NewHandlerWithOptions(opts HandlerOptions) (*Handler, error) {
 		client:             &http.Client{Timeout: opts.RequestTimeout, Transport: transport},
 		logger:             opts.Logger,
 		errorHandler:       opts.ErrorHandler,
+		maxResponseBodyBytes: opts.MaxResponseBodyBytes,
 		retryCount:         opts.RetryCount,
 		retryBackoff:       opts.RetryBackoff,
 		cacheMethods:       make(map[string]struct{}, len(opts.CacheMethods)),
@@ -303,9 +310,9 @@ func (h *Handler) fetchAndCache(r *http.Request, baseKey string, staleEntry cach
 		}, nil
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := readResponseBodyLimited(resp.Body, h.maxResponseBodyBytes)
 	if err != nil {
-		return originResult{}, relayerrors.Wrap(relayerrors.CategoryNetwork, "read_origin_response", "failed to read origin response", err)
+		return originResult{}, err
 	}
 
 	headers := sanitizeHeaders(resp.Header)
@@ -351,6 +358,13 @@ func (h *Handler) forwardDirect(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
+	body, err := readResponseBodyLimited(resp.Body, h.maxResponseBodyBytes)
+	if err != nil {
+		w.Header().Set(headerXCache, cacheMiss)
+		h.errorHandler.WriteHTTP(w, err)
+		return
+	}
+
 	for k, values := range sanitizeHeaders(resp.Header) {
 		for _, value := range values {
 			w.Header().Add(k, value)
@@ -358,7 +372,7 @@ func (h *Handler) forwardDirect(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set(headerXCache, cacheMiss)
 	w.WriteHeader(resp.StatusCode)
-	_, _ = io.Copy(w, resp.Body)
+	_, _ = w.Write(body)
 }
 
 func (h *Handler) revalidateInBackground(r *http.Request, baseKey string, staleEntry cache.Entry) {
@@ -644,6 +658,26 @@ func mergeHeaders(base, delta http.Header) http.Header {
 		merged[k] = copiedValues
 	}
 	return merged
+}
+
+func readResponseBodyLimited(r io.Reader, limit int64) ([]byte, error) {
+	if limit <= 0 {
+		body, err := io.ReadAll(r)
+		if err != nil {
+			return nil, relayerrors.Wrap(relayerrors.CategoryNetwork, "read_origin_response", "failed to read origin response", err)
+		}
+		return body, nil
+	}
+
+	lr := &io.LimitedReader{R: r, N: limit + 1}
+	body, err := io.ReadAll(lr)
+	if err != nil {
+		return nil, relayerrors.Wrap(relayerrors.CategoryNetwork, "read_origin_response", "failed to read origin response", err)
+	}
+	if int64(len(body)) > limit {
+		return nil, relayerrors.New(relayerrors.CategoryNetwork, "origin_response_too_large", fmt.Sprintf("origin response exceeded max body size (%d bytes)", limit))
+	}
+	return body, nil
 }
 
 func isCacheableStatus(status int) bool {
