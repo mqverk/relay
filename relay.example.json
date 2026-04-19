@@ -6,6 +6,7 @@
   "stale_if_error": "5m",
   "cache_max_entries": 5000,
   "cache_max_entry_bytes": 1048576,
+  "cache_max_bytes": 536870912,
   "cache_methods": ["GET"],
   "cache_bypass_paths": ["/auth", "/admin"],
   "cache_bypass_headers": ["Authorization"],
