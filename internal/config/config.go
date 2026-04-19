@@ -427,6 +427,7 @@ func parseFlags(cfg *Config, args []string) error {
 	fs.DurationVar(&cfg.StaleIfError, "stale-if-error", cfg.StaleIfError, "stale if error duration")
 	fs.IntVar(&cfg.CacheMaxEntries, "cache-max-entries", cfg.CacheMaxEntries, "max cache entries")
 	fs.IntVar(&cfg.CacheMaxEntryBytes, "cache-max-entry-bytes", cfg.CacheMaxEntryBytes, "max cacheable body bytes")
+	fs.Int64Var(&cfg.CacheMaxBytes, "cache-max-bytes", cfg.CacheMaxBytes, "max total in-memory cache bytes")
 	fs.StringVar(&cacheMethods, "cache-methods", cacheMethods, "comma-separated cache methods")
 	fs.StringVar(&bypassPaths, "cache-bypass-paths", bypassPaths, "comma-separated path prefixes to bypass cache")
 	fs.StringVar(&bypassHeaders, "cache-bypass-headers", bypassHeaders, "comma-separated headers to bypass cache")
