@@ -384,6 +384,7 @@ func applyEnvConfig(cfg *Config) {
 	applyDurationEnv("RELAY_DIAL_TIMEOUT", &cfg.DialTimeout)
 	applyDurationEnv("RELAY_IDLE_CONN_TIMEOUT", &cfg.IdleConnTimeout)
 	applyDurationEnv("RELAY_RESPONSE_HEADER_TIMEOUT", &cfg.ResponseHeaderTimeout)
+	applyInt64Env("RELAY_MAX_RESPONSE_HEADER_BYTES", &cfg.MaxResponseHeaderBytes)
 	applyIntEnv("RELAY_MAX_IDLE_CONNS", &cfg.MaxIdleConns)
 	applyIntEnv("RELAY_MAX_IDLE_CONNS_PER_HOST", &cfg.MaxIdleConnsPerHost)
 	applyIntEnv("RELAY_MAX_CONNS_PER_HOST", &cfg.MaxConnsPerHost)
@@ -551,6 +552,17 @@ func applyIntEnv(name string, dst *int) {
 		return
 	}
 	parsed, err := strconv.Atoi(strings.TrimSpace(value))
+	if err == nil {
+		*dst = parsed
+	}
+}
+
+func applyInt64Env(name string, dst *int64) {
+	value, ok := os.LookupEnv(name)
+	if !ok {
+		return
+	}
+	parsed, err := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
 	if err == nil {
 		*dst = parsed
 	}
