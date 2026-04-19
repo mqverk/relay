@@ -351,9 +351,16 @@ func (h *Handler) forwardDirect(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) revalidateInBackground(r *http.Request, baseKey string, staleEntry cache.Entry) {
-	cloned := r.Clone(context.Background())
+	timeout := h.client.Timeout
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	cloned := r.Clone(ctx)
+	coalescingKey := buildCoalescingKey(baseKey, cloned)
 	go func() {
-		_, err := h.inflight.Do(baseKey, func() (originResult, error) {
+		defer cancel()
+		_, err := h.inflight.Do(coalescingKey, func() (originResult, error) {
 			return h.fetchAndCache(cloned, baseKey, staleEntry, true)
 		})
 		if err != nil {
