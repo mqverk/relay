@@ -159,3 +159,10 @@ func TestParseRejectsNonPositiveMaxResponseHeaderBytes(t *testing.T) {
 		t.Fatal("expected parse error for non-positive max response header bytes")
 	}
 }
+
+func TestParseRejectsNonPositiveCacheMaxBytes(t *testing.T) {
+	_, err := Parse([]string{"--port", "3001", "--origin", "http://example.com", "--cache-max-bytes", "0"})
+	if err == nil {
+		t.Fatal("expected parse error for non-positive cache max bytes")
+	}
+}
