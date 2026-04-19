@@ -196,31 +196,31 @@ func defaultConfig() Config {
 const httpMethodGet = "GET"
 
 type fileConfig struct {
-	Port                  *int     `json:"port"`
-	Origin                *string  `json:"origin"`
-	TTL                   *string  `json:"ttl"`
-	StaleWhileRevalidate  *string  `json:"stale_while_revalidate"`
-	StaleIfError          *string  `json:"stale_if_error"`
-	CacheMaxEntries       *int     `json:"cache_max_entries"`
-	CacheMaxEntryBytes    *int     `json:"cache_max_entry_bytes"`
-	CacheMethods          []string `json:"cache_methods"`
-	CacheBypassPaths      []string `json:"cache_bypass_paths"`
-	CacheBypassHeaders    []string `json:"cache_bypass_headers"`
-	RequestTimeout        *string  `json:"request_timeout"`
-	DialTimeout           *string  `json:"dial_timeout"`
-	IdleConnTimeout       *string  `json:"idle_conn_timeout"`
-	ResponseHeaderTimeout *string  `json:"response_header_timeout"`
-	MaxIdleConns          *int     `json:"max_idle_conns"`
-	MaxIdleConnsPerHost   *int     `json:"max_idle_conns_per_host"`
-	MaxConnsPerHost       *int     `json:"max_conns_per_host"`
-	RetryCount            *int     `json:"retry_count"`
-	RetryBackoff          *string  `json:"retry_backoff"`
-	LogLevel              *string  `json:"log_level"`
-	Debug                 *bool    `json:"debug"`
-	MetricsPath           *string  `json:"metrics_path"`
-	AdminPrefix           *string  `json:"admin_prefix"`
-	RateLimitRPS          *float64 `json:"rate_limit_rps"`
-	RateLimitBurst        *int     `json:"rate_limit_burst"`
+	Port                  *int     `json:"port" yaml:"port"`
+	Origin                *string  `json:"origin" yaml:"origin"`
+	TTL                   *string  `json:"ttl" yaml:"ttl"`
+	StaleWhileRevalidate  *string  `json:"stale_while_revalidate" yaml:"stale_while_revalidate"`
+	StaleIfError          *string  `json:"stale_if_error" yaml:"stale_if_error"`
+	CacheMaxEntries       *int     `json:"cache_max_entries" yaml:"cache_max_entries"`
+	CacheMaxEntryBytes    *int     `json:"cache_max_entry_bytes" yaml:"cache_max_entry_bytes"`
+	CacheMethods          []string `json:"cache_methods" yaml:"cache_methods"`
+	CacheBypassPaths      []string `json:"cache_bypass_paths" yaml:"cache_bypass_paths"`
+	CacheBypassHeaders    []string `json:"cache_bypass_headers" yaml:"cache_bypass_headers"`
+	RequestTimeout        *string  `json:"request_timeout" yaml:"request_timeout"`
+	DialTimeout           *string  `json:"dial_timeout" yaml:"dial_timeout"`
+	IdleConnTimeout       *string  `json:"idle_conn_timeout" yaml:"idle_conn_timeout"`
+	ResponseHeaderTimeout *string  `json:"response_header_timeout" yaml:"response_header_timeout"`
+	MaxIdleConns          *int     `json:"max_idle_conns" yaml:"max_idle_conns"`
+	MaxIdleConnsPerHost   *int     `json:"max_idle_conns_per_host" yaml:"max_idle_conns_per_host"`
+	MaxConnsPerHost       *int     `json:"max_conns_per_host" yaml:"max_conns_per_host"`
+	RetryCount            *int     `json:"retry_count" yaml:"retry_count"`
+	RetryBackoff          *string  `json:"retry_backoff" yaml:"retry_backoff"`
+	LogLevel              *string  `json:"log_level" yaml:"log_level"`
+	Debug                 *bool    `json:"debug" yaml:"debug"`
+	MetricsPath           *string  `json:"metrics_path" yaml:"metrics_path"`
+	AdminPrefix           *string  `json:"admin_prefix" yaml:"admin_prefix"`
+	RateLimitRPS          *float64 `json:"rate_limit_rps" yaml:"rate_limit_rps"`
+	RateLimitBurst        *int     `json:"rate_limit_burst" yaml:"rate_limit_burst"`
 }
 
 func loadJSONConfig(path string) (fileConfig, error) {
