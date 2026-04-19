@@ -423,6 +423,7 @@ func parseFlags(cfg *Config, args []string) error {
 	fs.DurationVar(&cfg.DialTimeout, "dial-timeout", cfg.DialTimeout, "upstream dial timeout")
 	fs.DurationVar(&cfg.IdleConnTimeout, "idle-conn-timeout", cfg.IdleConnTimeout, "upstream idle connection timeout")
 	fs.DurationVar(&cfg.ResponseHeaderTimeout, "response-header-timeout", cfg.ResponseHeaderTimeout, "upstream response header timeout")
+	fs.Int64Var(&cfg.MaxResponseHeaderBytes, "max-response-header-bytes", cfg.MaxResponseHeaderBytes, "max upstream response header bytes")
 	fs.IntVar(&cfg.MaxIdleConns, "max-idle-conns", cfg.MaxIdleConns, "max idle conns")
 	fs.IntVar(&cfg.MaxIdleConnsPerHost, "max-idle-conns-per-host", cfg.MaxIdleConnsPerHost, "max idle conns per host")
 	fs.IntVar(&cfg.MaxConnsPerHost, "max-conns-per-host", cfg.MaxConnsPerHost, "max conns per host")
