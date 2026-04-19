@@ -1,4 +1,4 @@
-relay.exe
-relay
+/relay.exe
+/relay
 *.test
 coverage.out
